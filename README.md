@@ -152,6 +152,11 @@ never a silent fallback to the CPU.
 | `disable_existing_lights` | bool | No | `true` | Every light except the projector's gets `hide_render = true` |
 | `world_strength` | float | No | 0.0 | Applied to the World background when the scene has one with a Background node |
 
+Existing lights are off by default. The projector is meant to be the only light source: ambient
+light adds a constant term that dilutes the projected pattern and makes it harder to separate
+from the surroundings. Set `disable_existing_lights` to `false` only for illustrative renders
+where the scene would otherwise be black.
+
 ## Inputs
 
 | Input | Requirement |
@@ -160,6 +165,10 @@ never a silent fallback to the CPU.
 | Patterns | Extensions `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tif`, `.tiff`, `.exr` |
 | Pattern directory | Sorted by file name; non-image files are ignored |
 | Pattern sizes | May differ between shots. Within one shot, the first pattern defines the projector pixel grid and a warning is printed if others differ |
+
+`demo/` is an example, not an input: one cube on a 40 m ground plane, a 1024×512 pattern, and six
+shots on a hexagon. Its images show what the tool produces and are not reference data; no check
+reads them. The demo sets `device` to `GPU`, so it needs a machine where the GPU backend works.
 
 ## Outputs
 
