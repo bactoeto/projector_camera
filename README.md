@@ -259,7 +259,8 @@ section 3.2, figure 10).
 | Requirement | Detail |
 |---|---|
 | Repository | `https://github.com/bactoeto/projector_camera` |
-| Blender | 4.2 or newer, executable named `blender` on `PATH` |
+| Blender | 4.2 or newer; verified with 5.2.4 LTS, official Linux x64 build; executable named `blender` on `PATH` |
+| GPU rendering | Official builds ship precompiled Cycles kernels. A distribution build may compile them at runtime instead, which needs a CUDA toolkit and a supported host compiler |
 | Bundled scenes | Saved with Blender 5.2; they cannot be opened by 4.2 |
 | Python packages | None. numpy is used only by `verify/`, and ships with Blender |
 | Platform | Any platform Blender runs on. No shell scripts are used |
