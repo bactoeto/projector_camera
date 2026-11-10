@@ -22,7 +22,7 @@
   },
   "projector_settings": {
     "use_custom_texture_res": true,
-    "throw_ratio": 3.0,
+    "throw_ratio": 2.0,
     "power": 1200.0,
     "h_shift": 0.0,
     "v_shift": 0.0
