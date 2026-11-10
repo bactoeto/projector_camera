@@ -1,5 +1,5 @@
 {
-  "_comment": "One cube at the origin, the word test projected on it. Six shots around a regular hexagon; the projector sits 30 degrees from the camera at the same height. The demo keeps its own sun so the cube edges stay visible.",
+  "_comment": "One cube at the origin on a large ground plane, the word test projected on it. Six shots around a regular hexagon; the projector sits 30 degrees from the camera at the same height. The demo keeps its own sun so the cube edges and the ground stay visible.",
   "output_dir": "./output",
   "pattern_colorspace": "sRGB",
   "render": {
