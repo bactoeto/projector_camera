@@ -1,6 +1,9 @@
 # Session plan symlink, never committed
 PLAN.md
 
+# Personal configuration, created by copying config.example.json
+config.json
+
 # Render / capture outputs
 output/
 renders/

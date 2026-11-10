@@ -1,0 +1,13 @@
+# Normalise line endings so the repository behaves the same on every platform.
+* text=auto eol=lf
+
+# Binary assets: never convert, never diff as text.
+*.blend binary
+*.blend1 binary
+*.blend2 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.exr binary
