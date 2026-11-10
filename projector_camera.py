@@ -209,6 +209,69 @@ def apply_camera_settings(camera, settings, scene):
     scene.camera = camera
 
 
+# Tried in this order when render.gpu_backend is not given.  OptiX is the
+# fastest backend on NVIDIA hardware, CUDA the fallback, the rest are for
+# other vendors.
+GPU_BACKENDS = ("OPTIX", "CUDA", "HIP", "ONEAPI", "METAL")
+
+
+def supported_backends(prefs):
+    """Backends this Blender build accepts.
+
+    The property is a dynamic enum, so ``bl_rna`` lists no items; the only
+    reliable test is to assign each name and see whether Blender rejects it.
+    """
+    supported = []
+    for name in GPU_BACKENDS:
+        try:
+            prefs.compute_device_type = name
+        except TypeError:
+            continue
+        supported.append(name)
+    return supported
+
+
+def configure_device(render):
+    """Point Cycles at the CPU or at a GPU backend.
+
+    Setting ``scene.cycles.device`` alone is not enough: in background mode
+    Blender leaves the compute device type at NONE, so a GPU request silently
+    renders on the CPU.  The backend has to be selected and its devices
+    enabled first.
+    """
+    scene = bpy.context.scene
+    requested = render.get("device", "CPU")
+    if str(requested).upper() == "CPU":
+        scene.cycles.device = "CPU"
+        return
+    if str(requested).upper() != "GPU":
+        fail("render.device must be CPU or GPU, got '%s'" % requested)
+
+    prefs = bpy.context.preferences.addons["cycles"].preferences
+    supported = supported_backends(prefs)
+
+    backend = render.get("gpu_backend")
+    if backend is None:
+        backend = next((name for name in GPU_BACKENDS if name in supported), None)
+        if backend is None:
+            fail("no GPU backend available; set render.device to CPU")
+    else:
+        backend = str(backend).upper()
+        if backend not in supported:
+            fail(
+                "render.gpu_backend '%s' is not supported by this Blender; "
+                "available: %s" % (render.get("gpu_backend"), ", ".join(supported) or "none")
+            )
+
+    prefs.compute_device_type = backend
+    prefs.get_devices()
+    for device in prefs.devices:
+        device.use = device.type == backend
+    if not any(device.use for device in prefs.devices):
+        fail("no %s device found; set render.device to CPU" % backend)
+    scene.cycles.device = "GPU"
+
+
 def prepare_scene(config, projector):
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
@@ -220,7 +283,7 @@ def prepare_scene(config, projector):
     render = config.get("render", {})
     scene.cycles.samples = int(render.get("samples", 64))
     scene.cycles.use_denoising = bool(render.get("denoise", False))
-    scene.cycles.device = render.get("device", "CPU")
+    configure_device(render)
     scene.view_settings.exposure = float(render.get("exposure", 0.0))
 
     lighting = config.get("lighting", {})

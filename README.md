@@ -137,7 +137,13 @@ least one must exist.
 | `samples` | int | No | 64 | Cycles samples per pixel |
 | `denoise` | bool | No | `false` | |
 | `device` | string | No | `CPU` | `CPU`, `GPU` |
+| `gpu_backend` | string | No | first available | `OPTIX`, `CUDA`, `HIP`, `ONEAPI`, `METAL` |
 | `exposure` | float | No | 0.0 | Stops |
+
+Both values are case-insensitive. `gpu_backend` is ignored when `device` is `CPU`. With
+`device: "GPU"` and no `gpu_backend`, the first backend the running Blender supports is used, in
+the order `OPTIX`, `CUDA`, `HIP`, `ONEAPI`, `METAL`. A GPU that cannot be enabled is an error,
+never a silent fallback to the CPU.
 
 ### `lighting`
 
@@ -203,6 +209,7 @@ from lens-shift percentage to principal point has not been measured.
 | Lights | Every light except the projector's gets `hide_render = true` when `disable_existing_lights` is true |
 | `scene.camera` | Points at `SimCamera` for the run |
 | Render settings | Engine, resolution, samples, device, exposure, view transform, look and output path are overwritten |
+| Cycles device | `render.device` and `render.gpu_backend` are applied to the running process only; no user preference is saved |
 | World | Background strength is set when the scene has a World with a Background node |
 | Objects, materials | Not modified |
 
@@ -224,6 +231,10 @@ from lens-shift percentage to principal point has not been measured.
 | `error: could not register the Projectors add-on: <detail>` | Add-on import failed | 2 |
 | `error: the projector node tree has no Image Texture node` | Add-on version mismatch | 2 |
 | `error: Blender <x.y.z> is too old; this tool needs 4.2 or newer` | Version gate | 2 |
+| `error: render.device must be CPU or GPU, got '<value>'` | `render.device` is neither | 2 |
+| `error: render.gpu_backend '<value>' is not supported by this Blender; available: <list>` | Backend not compiled into this Blender | 2 |
+| `error: no GPU backend available; set render.device to CPU` | This Blender has no GPU support | 2 |
+| `error: no <backend> device found; set render.device to CPU` | Backend present, no usable device | 2 |
 
 ## Limits
 
