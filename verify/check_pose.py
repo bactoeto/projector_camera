@@ -68,16 +68,16 @@ def reference_pixel(scene, obj, point, width, height):
     return co.x * width, (1.0 - co.y) * height
 
 
-def check_role(scene, obj, role, view, entry, config):
-    pose = view[role]
+def check_role(scene, obj, role, shot, entry, config):
+    pose = shot[role]
     pc.aim(obj, pose["location"], pose["look_at"])
 
     if role == "camera":
-        intrinsics = dict(config.get("camera", {}))
-        intrinsics.update(pose.get("intrinsics", {}))
-        pc.apply_camera_settings(obj, intrinsics, scene)
+        settings = dict(config.get("camera_settings", {}))
+        settings.update(pose.get("settings", {}))
+        pc.apply_camera_settings(obj, settings, scene)
     else:
-        pc.apply_projector_settings(obj, config.get("projector", {}))
+        pc.apply_projector_settings(obj, config.get("projector_settings", {}))
 
     # Transforms set above only reach matrix_world after a dependency update;
     # without one, world_to_camera_view would use the previous pose.
@@ -120,20 +120,20 @@ def main():
     projector = pc.ensure_projector()
     scene = bpy.context.scene
 
-    views = config.get("views") or []
-    saved_views = calibration.get("views") or []
-    if len(views) != len(saved_views):
+    shots = config.get("shots") or []
+    saved_shots = calibration.get("shots") or []
+    if len(shots) != len(saved_shots):
         fail(
-            "configuration has %d views but calibration.json has %d"
-            % (len(views), len(saved_views))
+            "configuration has %d shots but calibration.json has %d"
+            % (len(shots), len(saved_shots))
         )
 
     worst = 0.0
-    for view, saved in zip(views, saved_views):
+    for shot, saved in zip(shots, saved_shots):
         for role, obj in (("camera", camera), ("projector", projector)):
-            if role not in view:
-                fail("view %r has no '%s' section" % (saved.get("name"), role))
-            rms = check_role(scene, obj, role, view, saved[role], config)
+            if role not in shot:
+                fail("shot %r has no '%s' section" % (saved.get("name"), role))
+            rms = check_role(scene, obj, role, shot, saved[role], config)
             worst = max(worst, rms)
             print("%-10s %-9s rms %.6f px" % (saved["name"], role, rms))
 

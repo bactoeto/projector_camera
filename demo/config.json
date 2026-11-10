@@ -1,5 +1,5 @@
 {
-  "_comment": "One cube at the origin, the word test projected on it, four views from a regular octagon. Camera and projector share the same pose in every view.",
+  "_comment": "One cube at the origin, the word test projected on it. Six shots around a regular hexagon; the projector sits 30 degrees from the camera at the same height. The demo keeps its own sun so the cube edges stay visible.",
   "output_dir": "./output",
   "pattern_colorspace": "sRGB",
   "render": {
@@ -12,7 +12,7 @@
     "disable_existing_lights": false,
     "world_strength": 0.0
   },
-  "camera": {
+  "camera_settings": {
     "width": 1280,
     "height": 720,
     "lens": 35.0,
@@ -20,17 +20,16 @@
     "shift_x": 0.0,
     "shift_y": 0.0
   },
-  "projector": {
+  "projector_settings": {
     "use_custom_texture_res": true,
     "throw_ratio": 3.0,
     "power": 1200.0,
     "h_shift": 0.0,
     "v_shift": 0.0
   },
-  "views": [
+  "shots": [
     {
       "name": "v0_000",
-      "patterns": "./test.png",
       "camera": {
         "location": [
           6.0,
@@ -53,12 +52,12 @@
           0.0,
           0.0,
           0.0
-        ]
+        ],
+        "patterns": "./test.png"
       }
     },
     {
       "name": "v1_060",
-      "patterns": "./test.png",
       "camera": {
         "location": [
           3.0,
@@ -81,12 +80,12 @@
           0.0,
           0.0,
           0.0
-        ]
+        ],
+        "patterns": "./test.png"
       }
     },
     {
       "name": "v2_120",
-      "patterns": "./test.png",
       "camera": {
         "location": [
           -3.0,
@@ -109,12 +108,12 @@
           0.0,
           0.0,
           0.0
-        ]
+        ],
+        "patterns": "./test.png"
       }
     },
     {
       "name": "v3_180",
-      "patterns": "./test.png",
       "camera": {
         "location": [
           -6.0,
@@ -137,12 +136,12 @@
           0.0,
           0.0,
           0.0
-        ]
+        ],
+        "patterns": "./test.png"
       }
     },
     {
       "name": "v4_240",
-      "patterns": "./test.png",
       "camera": {
         "location": [
           -3.0,
@@ -165,12 +164,12 @@
           0.0,
           0.0,
           0.0
-        ]
+        ],
+        "patterns": "./test.png"
       }
     },
     {
       "name": "v5_300",
-      "patterns": "./test.png",
       "camera": {
         "location": [
           3.0,
@@ -193,7 +192,8 @@
           0.0,
           0.0,
           0.0
-        ]
+        ],
+        "patterns": "./test.png"
       }
     }
   ]

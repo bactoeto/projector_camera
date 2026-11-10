@@ -8,7 +8,7 @@ Headless usage:
 The projection itself is provided by the bundled copy of the ``Projectors``
 add-on (https://github.com/Ocupe/Projectors, GPL-3.0-or-later).  This script
 only moves numbers from the configuration into that add-on and Blender's
-camera, then loops over views and patterns.
+camera, then loops over shots and patterns.
 """
 
 import json
@@ -60,17 +60,18 @@ def load_config(path):
     def resolve(value):
         return value if Path(value).is_absolute() else str((base / value).resolve())
 
-    if "output_dir" not in config:
-        config["output_dir"] = "./output"
+    config.setdefault("output_dir", "./output")
     config["output_dir"] = resolve(config["output_dir"])
 
-    # A top-level patterns entry is the default; a view may override it, so it
-    # is only required when no view supplies its own.
-    if config.get("patterns") is not None:
-        config["patterns"] = resolve(config["patterns"])
-    for view in config.get("views") or []:
-        if view.get("patterns") is not None:
-            view["patterns"] = resolve(view["patterns"])
+    # Patterns belong to the projector. A shot may override them, so the
+    # projector-level entry is only required when no shot supplies its own.
+    projector_settings = config.get("projector_settings")
+    if projector_settings and projector_settings.get("patterns") is not None:
+        projector_settings["patterns"] = resolve(projector_settings["patterns"])
+    for shot in config.get("shots") or []:
+        projector_pose = shot.get("projector")
+        if projector_pose and projector_pose.get("patterns") is not None:
+            projector_pose["patterns"] = resolve(projector_pose["patterns"])
     return config
 
 
@@ -336,14 +337,15 @@ def main():
     ensure_addon(config, Path(__file__).resolve().parent)
 
     colorspace = config.get("pattern_colorspace", "sRGB")
+    projector_settings = config.get("projector_settings", {})
     default_patterns = None
-    if config.get("patterns") is not None:
-        default_patterns = collect_patterns(config["patterns"])
+    if projector_settings.get("patterns") is not None:
+        default_patterns = collect_patterns(projector_settings["patterns"])
     output_dir = Path(config["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
-    views = config.get("views") or []
-    if not views:
-        fail("configuration has no views")
+    shots = config.get("shots") or []
+    if not shots:
+        fail("configuration has no shots")
 
     camera = ensure_camera(CAMERA_NAME)
     projector = ensure_projector()
@@ -351,7 +353,6 @@ def main():
     scene = prepare_scene(config, projector)
 
     warnings = []
-    projector_settings = config.get("projector", {})
     if float(projector_settings.get("h_shift", 0.0)) or float(projector_settings.get("v_shift", 0.0)):
         warnings.append(
             "projector h_shift/v_shift is non-zero; the mapping from lens shift "
@@ -360,43 +361,44 @@ def main():
 
     total = 0
     poses = []
-    for index, view in enumerate(views):
-        name = view.get("name") or "view_%02d" % index
-        if view.get("patterns") is not None:
-            view_patterns = collect_patterns(view["patterns"])
+    for index, shot in enumerate(shots):
+        name = shot.get("name") or "shot_%02d" % index
+        shot_projector = shot.get("projector") or {}
+        if shot_projector.get("patterns") is not None:
+            shot_patterns = collect_patterns(shot_projector["patterns"])
         elif default_patterns is not None:
-            view_patterns = default_patterns
+            shot_patterns = default_patterns
         else:
             fail(
-                "view %r has no 'patterns' and the configuration has no default "
+                "shot %r has no 'patterns' and the configuration has no default "
                 "'patterns'" % name
             )
 
         for role in ("camera", "projector"):
-            pose = view.get(role)
+            pose = shot.get(role)
             if (not isinstance(pose, dict)
                     or "location" not in pose
                     or "look_at" not in pose):
                 fail(
-                    "view %r needs '%s.location' and '%s.look_at'"
+                    "shot %r needs '%s.location' and '%s.look_at'"
                     % (name, role, role)
                 )
 
-        aim(camera, view["camera"]["location"], view["camera"]["look_at"])
-        aim(projector, view["projector"]["location"], view["projector"]["look_at"])
+        aim(camera, shot["camera"]["location"], shot["camera"]["look_at"])
+        aim(projector, shot["projector"]["location"], shot["projector"]["look_at"])
 
-        intrinsics = dict(config.get("camera", {}))
-        intrinsics.update(view.get("camera", {}).get("intrinsics", {}))
-        apply_camera_settings(camera, intrinsics, scene)
+        camera_settings = dict(config.get("camera_settings", {}))
+        camera_settings.update(shot.get("camera", {}).get("settings", {}))
+        apply_camera_settings(camera, camera_settings, scene)
 
-        for pattern in view_patterns:
+        for pattern in shot_patterns:
             texture_node.image = load_pattern(pattern, colorspace)
             texture_node.extension = "CLIP"
             # Re-apply so the projection mapping follows this image's aspect ratio.
             apply_projector_settings(projector, projector_settings)
 
-            # Flat layout: the view name is part of the file name, so every
-            # image sits in one directory and sorts by view.
+            # Flat layout: the shot name is part of the file name, so every
+            # image sits in one directory and sorts by shot.
             target = output_dir / ("%s__%s.png" % (name, pattern.stem))
             scene.render.filepath = str(target)
             bpy.ops.render.render(write_still=True)
@@ -409,7 +411,7 @@ def main():
         camera_entry["R"], camera_entry["t"] = extrinsics_of(camera)
 
         projector_width, projector_height = projector_grid(
-            projector.proj_settings, view_patterns
+            projector.proj_settings, shot_patterns
         )
         projector_entry = intrinsics_of(projector, projector_width, projector_height)
         projector_entry["R"], projector_entry["t"] = extrinsics_of(projector)
@@ -429,7 +431,7 @@ def main():
             "projector": "ideal pinhole, no distortion, no defocus",
         },
         "warnings": warnings,
-        "views": poses,
+        "shots": poses,
     }
     calibration_path = output_dir / "calibration.json"
     calibration_path.write_text(json.dumps(calibration, indent=2) + "\n", encoding="utf-8")

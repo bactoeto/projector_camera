@@ -47,10 +47,12 @@ One JSON example; every key is defined by the tables below.
 
 ```json
 {
-  "patterns": "./patterns",
-  "views": [
+  "projector_settings": {
+    "patterns": "./patterns"
+  },
+  "shots": [
     {
-      "name": "view_00",
+      "name": "shot_00",
       "camera": {
         "location": [0.0, -2.2, 0.15],
         "look_at": [0.0, 0.0, -0.1]
@@ -64,6 +66,9 @@ One JSON example; every key is defined by the tables below.
 }
 ```
 
+Three blocks, each with one meaning: `camera_settings` describes the camera, `projector_settings`
+describes the projector, and `shots` lists where the two are placed for each capture.
+
 Path values are resolved relative to the configuration file, not the working directory.
 `projector_addon_path` is the exception: it is used exactly as given.
 
@@ -71,30 +76,14 @@ Path values are resolved relative to the configuration file, not the working dir
 
 | Key | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `patterns` | string | Conditional¹ | — | One image file or one directory |
+| `camera_settings` | object | No | see below | Camera parameters |
+| `projector_settings` | object | No | see below | Projector parameters, including which images it projects |
+| `shots` | array | Yes | — | At least one capture |
 | `output_dir` | string | No | `./output` | Created if missing |
 | `pattern_colorspace` | string | No | `sRGB` | Colorspace assigned to each loaded pattern |
 | `projector_addon_path` | string | No | `<repo>/vendor/Projectors` | Directory containing the add-on; not resolved against the configuration |
 
-¹ Required unless every view sets `views[].patterns`.
-
-### `render`
-
-| Key | Type | Required | Default | Values |
-|---|---|---|---|---|
-| `samples` | int | No | 64 | Cycles samples per pixel |
-| `denoise` | bool | No | `false` | |
-| `device` | string | No | `CPU` | `CPU`, `GPU` |
-| `exposure` | float | No | 0.0 | Stops |
-
-### `lighting`
-
-| Key | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `disable_existing_lights` | bool | No | `true` | Every light except the projector's gets `hide_render = true` |
-| `world_strength` | float | No | 0.0 | Applied to the World background when the scene has one |
-
-### `camera`
+### `camera_settings`
 
 | Key | Type | Required | Default | Unit |
 |---|---|---|---|---|
@@ -110,10 +99,11 @@ Path values are resolved relative to the configuration file, not the working dir
 | `dof.fstop` | float | No | 2.8 | |
 | `dof.focus_distance` | float | No | 2.2 | m |
 
-### `projector`
+### `projector_settings`
 
 | Key | Type | Required | Default | Notes |
 |---|---|---|---|---|
+| `patterns` | string | Conditional¹ | — | One image file or one directory |
 | `use_custom_texture_res` | bool | No | `true` | `true`: the pattern file defines the pixel grid. `false`: `resolution` does |
 | `resolution` | string | No | `1920x1080` | Preset name; used only when the flag above is `false` |
 | `throw_ratio` | float | No | 1.5 | |
@@ -122,20 +112,39 @@ Path values are resolved relative to the configuration file, not the working dir
 | `v_shift` | float | No | 0.0 | percent |
 | `show_pixel_grid` | bool | No | `false` | |
 
-### `views[]`
+¹ Required unless every shot sets `shots[].projector.patterns`.
+
+### `shots[]`
 
 | Key | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `name` | string | No | `view_<index>` | Prefix of every output file for this view |
-| `patterns` | string | No | top-level `patterns` | One file or one directory |
+| `name` | string | No | `shot_<index>` | Prefix of every output file for this shot |
 | `camera.location` | [float ×3] | Yes | — | m |
 | `camera.look_at` | [float ×3] | Yes | — | m |
-| `camera.intrinsics` | object | No | — | Overrides any `camera` key for this view; a `dof` object replaces the whole `dof` block |
+| `camera.settings` | object | No | — | Overrides any `camera_settings` key for this shot; a `dof` object replaces the whole `dof` block |
 | `projector.location` | [float ×3] | Yes | — | m |
 | `projector.look_at` | [float ×3] | Yes | — | m |
+| `projector.patterns` | string | No | `projector_settings.patterns` | One file or one directory |
 
-`patterns` is resolved per view: a view that sets it uses only its own list; a view that does
-not uses the top-level list. The two are never merged, and at least one must exist.
+`patterns` is resolved per shot: a shot that sets `shots[].projector.patterns` uses only its own
+list; a shot that does not uses `projector_settings.patterns`. The two are never merged, and at
+least one must exist.
+
+### `render`
+
+| Key | Type | Required | Default | Values |
+|---|---|---|---|---|
+| `samples` | int | No | 64 | Cycles samples per pixel |
+| `denoise` | bool | No | `false` | |
+| `device` | string | No | `CPU` | `CPU`, `GPU` |
+| `exposure` | float | No | 0.0 | Stops |
+
+### `lighting`
+
+| Key | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `disable_existing_lights` | bool | No | `true` | Every light except the projector's gets `hide_render = true` |
+| `world_strength` | float | No | 0.0 | Applied to the World background when the scene has one with a Background node |
 
 ## Inputs
 
@@ -144,18 +153,18 @@ not uses the top-level list. The two are never merged, and at least one must exi
 | Scene | Any `.blend`. Needs objects to project onto; a camera and a light are not required |
 | Patterns | Extensions `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tif`, `.tiff`, `.exr` |
 | Pattern directory | Sorted by file name; non-image files are ignored |
-| Pattern sizes | May differ between views. Within one view, the first pattern defines the projector pixel grid and a warning is printed if others differ |
+| Pattern sizes | May differ between shots. Within one shot, the first pattern defines the projector pixel grid and a warning is printed if others differ |
 
 ## Outputs
 
 ```
 <output_dir>/
-├── <view name>__<pattern stem>.png
+├── <shot name>__<pattern stem>.png
 └── calibration.json
 ```
 
-One PNG per view and pattern, 8-bit RGB without alpha, extension forced to `.png`. The double
-underscore separates view name from pattern stem; both may contain single underscores.
+One PNG per shot and pattern, 8-bit RGB without alpha, extension forced to `.png`. The double
+underscore separates shot name from pattern stem; both may contain single underscores.
 
 ### `calibration.json`
 
@@ -167,13 +176,13 @@ underscore separates view name from pattern stem; both may contain single unders
 | `models.camera` | string | `ideal pinhole, no distortion` |
 | `models.projector` | string | `ideal pinhole, no distortion, no defocus` |
 | `warnings` | string[] | Non-fatal notes |
-| `views` | object[] | One entry per view, in configuration order |
-| `views[].name` | string | Matches the output file prefix |
-| `views[].camera.width`, `.height` | int | Pixel grid the intrinsics refer to |
-| `views[].camera.K` | float[3][3] | Intrinsics, pixels |
-| `views[].camera.R` | float[3][3] | World to camera rotation |
-| `views[].camera.t` | float[3] | World to camera translation |
-| `views[].projector.*` | same | Projector model |
+| `shots` | object[] | One entry per shot, in configuration order |
+| `shots[].name` | string | Matches the output file prefix |
+| `shots[].camera.width`, `.height` | int | Pixel grid the intrinsics refer to |
+| `shots[].camera.K` | float[3][3] | Intrinsics, pixels |
+| `shots[].camera.R` | float[3][3] | World to camera rotation |
+| `shots[].camera.t` | float[3] | World to camera translation |
+| `shots[].projector.*` | same | Projector model |
 
 `p_camera = R @ p_world + t`, in metres, with x right, y down and z forward: the convention
 used by `cv2.projectPoints`, `cv2.triangulatePoints` and `cv2.solvePnP`.
@@ -202,9 +211,9 @@ from lens-shift percentage to principal point has not been measured.
 | Message | Condition | Exit |
 |---|---|---|
 | `error: configuration not found: <path>` | `--config` points at no file | 2 |
-| `error: configuration has no views` | `views` missing or empty | 2 |
-| `error: view '<name>' needs '<role>.location' and '<role>.look_at'` | Incomplete pose | 2 |
-| `error: view '<name>' has no 'patterns' and the configuration has no default 'patterns'` | No pattern source for this view | 2 |
+| `error: configuration has no shots` | `shots` missing or empty | 2 |
+| `error: shot '<name>' needs '<role>.location' and '<role>.look_at'` | Incomplete pose | 2 |
+| `error: shot '<name>' has no 'patterns' and the configuration has no default 'patterns'` | No pattern source for this shot | 2 |
 | `error: patterns path is neither a file nor a directory: <path>` | Bad `patterns` value | 2 |
 | `error: no images found in <dir>` | Directory has no supported image | 2 |
 | `error: unsupported image format: <path>` | `patterns` is a file with another extension | 2 |

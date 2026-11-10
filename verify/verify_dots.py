@@ -53,10 +53,14 @@ def load_config(path):
     with open(path, "r", encoding="utf-8") as handle:
         config = json.load(handle)
     base = path.resolve().parent
-    for key in ("patterns", "output_dir"):
-        value = config.get(key)
-        if value and not Path(value).is_absolute():
-            config[key] = str((base / value).resolve())
+
+    def resolve(value):
+        return value if Path(value).is_absolute() else str((base / value).resolve())
+
+    config["output_dir"] = resolve(config.get("output_dir", "./output"))
+    patterns = config.get("projector_settings", {}).get("patterns")
+    if patterns:
+        config["projector_settings"]["patterns"] = resolve(patterns)
     return config
 
 
@@ -71,7 +75,7 @@ def check_settings(config):
 
 
 def make_pattern(config, settings):
-    pattern_path = Path(config["patterns"])
+    pattern_path = Path(config["projector_settings"]["patterns"])
     pattern_path.parent.mkdir(parents=True, exist_ok=True)
 
     width = int(config.get("verify", {}).get("pattern_width", 512))
@@ -248,7 +252,7 @@ def measure(config, settings):
     with open(calibration_path, "r", encoding="utf-8") as handle:
         calibration = json.load(handle)
 
-    view = calibration["views"][0]
+    view = calibration["shots"][0]
     view_name = view["name"]
     images = sorted(Path(config["output_dir"]).glob(view_name + "__*.png"))
     if not images:

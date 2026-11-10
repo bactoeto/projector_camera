@@ -1,18 +1,34 @@
 {
   "_comment": "Only the required fields are listed; every other parameter has a default. Copy to config.json and edit the paths and the two poses.",
-
-  "patterns": "./patterns",
-
-  "views": [
+  "projector_settings": {
+    "patterns": "./patterns"
+  },
+  "shots": [
     {
-      "name": "view_00",
+      "name": "shot_00",
       "camera": {
-        "location": [0.0, -2.2, 0.15],
-        "look_at": [0.0, 0.0, -0.1]
+        "location": [
+          0.0,
+          -2.2,
+          0.15
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          -0.1
+        ]
       },
       "projector": {
-        "location": [0.45, -2.4, 0.15],
-        "look_at": [0.0, 0.0, -0.1]
+        "location": [
+          0.45,
+          -2.4,
+          0.15
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          -0.1
+        ]
       }
     }
   ]
