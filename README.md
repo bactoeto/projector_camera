@@ -43,7 +43,7 @@ found, add the directory containing the Blender executable to `PATH`.
 1. Open `scene.blend`, edit or replace the objects, save.
 2. Copy `config.example.json` to `config.json` and adjust the marked fields.
 3. Run the command above.
-4. Results land in `output/<view_name>/<pattern_name>.png`.
+4. Results land in `output/<view_name>__<pattern_name>.png`.
 
 The input `.blend` is never written to. A `Projector` and a `SimCamera` object are created in
 memory and reused on later runs instead of piling up duplicates.
@@ -62,16 +62,16 @@ memory and reused on later runs instead of piling up duplicates.
 
 ```
 output/
-├── view_00/
-│   ├── p00_left_red_right_blue.png
-│   └── p01_checker.png
-├── view_01/
-│   └── ...
+├── view_00__p00_left_red_right_blue.png
+├── view_00__p01_checker.png
+├── view_01__p00_left_red_right_blue.png
+├── view_01__p01_checker.png
 └── calibration.json
 ```
 
-One PNG per view and pattern, named after the pattern file. Plus a single
-`calibration.json` describing every view.
+One PNG per view and pattern, in a single directory, named
+`<view_name>__<pattern_name>.png`. The double underscore keeps the two names apart, since
+both contain single underscores. Plus a single `calibration.json` describing every view.
 
 ### calibration.json
 
@@ -129,7 +129,7 @@ in [Camera intrinsics](#camera-intrinsics).
 
 | Key | Default | Meaning |
 |---|---|---|
-| `patterns` | `./patterns` | One image file or a directory. A directory is sorted by filename |
+| `patterns` | `./patterns` | One image file or a directory. A directory is sorted by filename. Required unless every view sets its own `views[].patterns` |
 | `output_dir` | `./output` | Output root |
 | `pattern_colorspace` | `sRGB` | Use `Non-Color` when the image encodes intensity (fringes, Gray code) |
 
@@ -186,6 +186,7 @@ to the chosen grid, which stretches it to that aspect ratio.
 | Key | Meaning |
 |---|---|
 | `views[].name` | Output subdirectory |
+| `views[].patterns` | Overrides the top-level `patterns` for this view; same file-or-directory rules |
 | `views[].camera.location`, `.look_at` | Metres; `look_at` sets the orientation |
 | `views[].projector.location`, `.look_at` | Same, for the projector |
 
@@ -364,6 +365,29 @@ Two implementation details in the measurement are worth knowing:
 shows red on the left, the projection is not mirrored. This is the cheapest check that the
 add-on's mapping behaves as expected on the Blender version in use.
 
+## Demo: one cube, the word test
+
+A self-contained check that can be judged by eye.
+
+```bash
+blender -b demo/cube.blend -P projector_camera.py -- --config demo/config.json
+```
+
+`demo/cube.blend` holds a single 2 m cube centred on the origin. The rig stops at all eight
+vertices of a regular octagon of radius 4 m and height 2.5 m, aimed at the origin each time,
+and projects `demo/test.png`: the word "test", black on white.
+
+Expect eight images under `demo/output/v<index>_<angle>__test.png`, each showing the cube lit
+with the word across its faces, plus `demo/output/calibration.json` with eight poses.
+
+The camera and projector are rigidly mounted 0.35 m apart. Co-locating them would be
+degenerate: every pixel would leave and return along the same ray, so the capture would be
+the pattern itself, carrying no information about the object, and triangulation would have a
+zero baseline.
+
+Each view sets its own `patterns` and the top-level entry is omitted, so the demo also
+exercises the per-view override.
+
 ## Layout
 
 ```
@@ -374,6 +398,7 @@ scene.blend           test scene (sphere, block, floor, one sun light, one user 
 patterns/             orientation test pattern and a checkerboard
 vendor/Projectors/    bundled add-on, GPL-3.0-or-later
 docs/                 API notes and reference material
+demo/                 one cube, projected "test", eight views
 verify/               projector mapping check (pattern, config, dots.png)
 ```
 

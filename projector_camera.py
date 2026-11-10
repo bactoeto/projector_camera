@@ -58,12 +58,21 @@ def load_config(path):
         config = json.load(handle)
 
     base = path.resolve().parent
-    for key in ("patterns", "output_dir"):
-        value = config.get(key)
-        if value is None:
-            fail("configuration is missing '%s'" % key)
-        if not Path(value).is_absolute():
-            config[key] = str((base / value).resolve())
+
+    def resolve(value):
+        return value if Path(value).is_absolute() else str((base / value).resolve())
+
+    if "output_dir" not in config:
+        fail("configuration is missing 'output_dir'")
+    config["output_dir"] = resolve(config["output_dir"])
+
+    # A top-level patterns entry is the default; a view may override it, so it
+    # is only required when no view supplies its own.
+    if config.get("patterns") is not None:
+        config["patterns"] = resolve(config["patterns"])
+    for view in config.get("views") or []:
+        if view.get("patterns") is not None:
+            view["patterns"] = resolve(view["patterns"])
     return config
 
 
@@ -358,8 +367,11 @@ def main():
     ensure_addon(config, Path(__file__).resolve().parent)
 
     colorspace = config.get("pattern_colorspace", "sRGB")
-    patterns = collect_patterns(config["patterns"])
+    default_patterns = None
+    if config.get("patterns") is not None:
+        default_patterns = collect_patterns(config["patterns"])
     output_dir = Path(config["output_dir"])
+    output_dir.mkdir(parents=True, exist_ok=True)
     views = config.get("views") or []
     if not views:
         fail("configuration has no views")
@@ -381,6 +393,16 @@ def main():
     poses = []
     for index, view in enumerate(views):
         name = view.get("name") or "view_%02d" % index
+        if view.get("patterns") is not None:
+            view_patterns = collect_patterns(view["patterns"])
+        elif default_patterns is not None:
+            view_patterns = default_patterns
+        else:
+            fail(
+                "view %r has no 'patterns' and the configuration has no default "
+                "'patterns'" % name
+            )
+
         aim(camera, view["camera"]["location"], view["camera"]["look_at"])
         aim(projector, view["projector"]["location"], view["projector"]["look_at"])
 
@@ -388,16 +410,15 @@ def main():
         intrinsics.update(view.get("camera", {}).get("intrinsics", {}))
         apply_camera_settings(camera, intrinsics, scene)
 
-        view_dir = output_dir / name
-        view_dir.mkdir(parents=True, exist_ok=True)
-
-        for pattern in patterns:
+        for pattern in view_patterns:
             texture_node.image = load_pattern(pattern, colorspace)
             texture_node.extension = "CLIP"
             # Re-apply so the projection mapping follows this image's aspect ratio.
             apply_projector_settings(projector, projector_settings)
 
-            target = view_dir / (pattern.stem + ".png")
+            # Flat layout: the view name is part of the file name, so every
+            # image sits in one directory and sorts by view.
+            target = output_dir / ("%s__%s.png" % (name, pattern.stem))
             scene.render.filepath = str(target)
             bpy.ops.render.render(write_still=True)
             total += 1
@@ -408,7 +429,9 @@ def main():
         )
         camera_entry["R"], camera_entry["t"] = extrinsics_of(camera)
 
-        projector_width, projector_height = projector_grid(projector.proj_settings, patterns)
+        projector_width, projector_height = projector_grid(
+            projector.proj_settings, view_patterns
+        )
         projector_entry = intrinsics_of(projector, projector_width, projector_height)
         projector_entry["R"], projector_entry["t"] = extrinsics_of(projector)
 

@@ -1,0 +1,256 @@
+{
+  "_comment": "One cube at the origin, the word test projected on it, four views from a regular octagon. Camera and projector share the same pose in every view.",
+  "output_dir": "./output",
+  "pattern_colorspace": "sRGB",
+  "render": {
+    "samples": 64,
+    "denoise": false,
+    "device": "CPU",
+    "exposure": 0.0
+  },
+  "lighting": {
+    "disable_existing_lights": true,
+    "world_strength": 0.0
+  },
+  "camera": {
+    "width": 1280,
+    "height": 720,
+    "lens": 35.0,
+    "sensor_width": 36.0,
+    "shift_x": 0.0,
+    "shift_y": 0.0
+  },
+  "projector": {
+    "use_custom_texture_res": true,
+    "throw_ratio": 1.2,
+    "power": 1200.0,
+    "h_shift": 0.0,
+    "v_shift": 0.0
+  },
+  "views": [
+    {
+      "name": "v0_000",
+      "patterns": "./test.png",
+      "camera": {
+        "location": [
+          4.0,
+          0.0,
+          2.5
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "projector": {
+        "location": [
+          4.0,
+          0.35,
+          2.6
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "v1_045",
+      "patterns": "./test.png",
+      "camera": {
+        "location": [
+          2.828,
+          2.828,
+          2.5
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "projector": {
+        "location": [
+          2.581,
+          3.076,
+          2.6
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "v2_090",
+      "patterns": "./test.png",
+      "camera": {
+        "location": [
+          0.0,
+          4.0,
+          2.5
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "projector": {
+        "location": [
+          -0.35,
+          4.0,
+          2.6
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "v3_135",
+      "patterns": "./test.png",
+      "camera": {
+        "location": [
+          -2.828,
+          2.828,
+          2.5
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "projector": {
+        "location": [
+          -3.076,
+          2.581,
+          2.6
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "v4_180",
+      "patterns": "./test.png",
+      "camera": {
+        "location": [
+          -4.0,
+          0.0,
+          2.5
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "projector": {
+        "location": [
+          -4.0,
+          -0.35,
+          2.6
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "v5_225",
+      "patterns": "./test.png",
+      "camera": {
+        "location": [
+          -2.828,
+          -2.828,
+          2.5
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "projector": {
+        "location": [
+          -2.581,
+          -3.076,
+          2.6
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "v6_270",
+      "patterns": "./test.png",
+      "camera": {
+        "location": [
+          -0.0,
+          -4.0,
+          2.5
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "projector": {
+        "location": [
+          0.35,
+          -4.0,
+          2.6
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "v7_315",
+      "patterns": "./test.png",
+      "camera": {
+        "location": [
+          2.828,
+          -2.828,
+          2.5
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "projector": {
+        "location": [
+          3.076,
+          -2.581,
+          2.6
+        ],
+        "look_at": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    }
+  ]
+}

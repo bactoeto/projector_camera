@@ -250,9 +250,10 @@ def measure(config, settings):
 
     view = calibration["views"][0]
     view_name = view["name"]
-    images = sorted(Path(config["output_dir"], view_name).glob("*.png"))
+    images = sorted(Path(config["output_dir"]).glob(view_name + "__*.png"))
     if not images:
-        fail("no rendered image in %s" % Path(config["output_dir"], view_name))
+        fail("no rendered image matching %s__*.png in %s"
+             % (view_name, config["output_dir"]))
 
     luminance = load_luminance(images[0])
     dots = settings["dots"]
