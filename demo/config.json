@@ -5,7 +5,7 @@
   "render": {
     "samples": 64,
     "denoise": false,
-    "device": "CPU",
+    "device": "GPU",
     "exposure": 0.0
   },
   "lighting": {
