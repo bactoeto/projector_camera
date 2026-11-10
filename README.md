@@ -166,10 +166,6 @@ where the scene would otherwise be black.
 | Pattern directory | Sorted by file name; non-image files are ignored |
 | Pattern sizes | May differ between shots. Within one shot, the first pattern defines the projector pixel grid and a warning is printed if others differ |
 
-`demo/` is an example, not an input: one cube on a 40 m ground plane, a 1024×512 pattern, and six
-shots on a hexagon. Its images show what the tool produces and are not reference data; no check
-reads them. The demo sets `device` to `GPU`, so it needs a machine where the GPU backend works.
-
 ## Outputs
 
 ```
@@ -287,6 +283,13 @@ Run by hand, outside the capture path.
 
 `check_pose.py` reads `<output_dir>/calibration.json`, so the capture must have run with the
 same configuration first.
+
+## Demo
+
+`demo/` shows a complete run: one cube on a 40 m ground plane, a 1024×512 pattern, and six shots
+on a hexagon with the projector 30° from the camera. Its images are an illustration of the output,
+not reference data; no check reads them. The configuration sets `device` to `GPU`, so the demo
+needs a machine where the GPU backend works.
 
 ## Licence
 
