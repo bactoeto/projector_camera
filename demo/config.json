@@ -22,7 +22,7 @@
   },
   "projector": {
     "use_custom_texture_res": true,
-    "throw_ratio": 1.2,
+    "throw_ratio": 3.0,
     "power": 1200.0,
     "h_shift": 0.0,
     "v_shift": 0.0
@@ -33,9 +33,9 @@
       "patterns": "./test.png",
       "camera": {
         "location": [
-          4.0,
+          6.0,
           0.0,
-          2.5
+          3.0
         ],
         "look_at": [
           0.0,
@@ -45,9 +45,9 @@
       },
       "projector": {
         "location": [
-          4.0,
-          0.35,
-          2.6
+          5.196,
+          3.0,
+          3.0
         ],
         "look_at": [
           0.0,
@@ -57,13 +57,13 @@
       }
     },
     {
-      "name": "v1_045",
+      "name": "v1_060",
       "patterns": "./test.png",
       "camera": {
         "location": [
-          2.828,
-          2.828,
-          2.5
+          3.0,
+          5.196,
+          3.0
         ],
         "look_at": [
           0.0,
@@ -73,9 +73,9 @@
       },
       "projector": {
         "location": [
-          2.581,
-          3.076,
-          2.6
+          0.0,
+          6.0,
+          3.0
         ],
         "look_at": [
           0.0,
@@ -85,13 +85,13 @@
       }
     },
     {
-      "name": "v2_090",
+      "name": "v2_120",
       "patterns": "./test.png",
       "camera": {
         "location": [
-          0.0,
-          4.0,
-          2.5
+          -3.0,
+          5.196,
+          3.0
         ],
         "look_at": [
           0.0,
@@ -101,9 +101,9 @@
       },
       "projector": {
         "location": [
-          -0.35,
-          4.0,
-          2.6
+          -5.196,
+          3.0,
+          3.0
         ],
         "look_at": [
           0.0,
@@ -113,13 +113,13 @@
       }
     },
     {
-      "name": "v3_135",
+      "name": "v3_180",
       "patterns": "./test.png",
       "camera": {
         "location": [
-          -2.828,
-          2.828,
-          2.5
+          -6.0,
+          0.0,
+          3.0
         ],
         "look_at": [
           0.0,
@@ -129,9 +129,9 @@
       },
       "projector": {
         "location": [
-          -3.076,
-          2.581,
-          2.6
+          -5.196,
+          -3.0,
+          3.0
         ],
         "look_at": [
           0.0,
@@ -141,13 +141,13 @@
       }
     },
     {
-      "name": "v4_180",
+      "name": "v4_240",
       "patterns": "./test.png",
       "camera": {
         "location": [
-          -4.0,
-          0.0,
-          2.5
+          -3.0,
+          -5.196,
+          3.0
         ],
         "look_at": [
           0.0,
@@ -156,66 +156,10 @@
         ]
       },
       "projector": {
-        "location": [
-          -4.0,
-          -0.35,
-          2.6
-        ],
-        "look_at": [
-          0.0,
-          0.0,
-          0.0
-        ]
-      }
-    },
-    {
-      "name": "v5_225",
-      "patterns": "./test.png",
-      "camera": {
-        "location": [
-          -2.828,
-          -2.828,
-          2.5
-        ],
-        "look_at": [
-          0.0,
-          0.0,
-          0.0
-        ]
-      },
-      "projector": {
-        "location": [
-          -2.581,
-          -3.076,
-          2.6
-        ],
-        "look_at": [
-          0.0,
-          0.0,
-          0.0
-        ]
-      }
-    },
-    {
-      "name": "v6_270",
-      "patterns": "./test.png",
-      "camera": {
         "location": [
           -0.0,
-          -4.0,
-          2.5
-        ],
-        "look_at": [
-          0.0,
-          0.0,
-          0.0
-        ]
-      },
-      "projector": {
-        "location": [
-          0.35,
-          -4.0,
-          2.6
+          -6.0,
+          3.0
         ],
         "look_at": [
           0.0,
@@ -225,13 +169,13 @@
       }
     },
     {
-      "name": "v7_315",
+      "name": "v5_300",
       "patterns": "./test.png",
       "camera": {
         "location": [
-          2.828,
-          -2.828,
-          2.5
+          3.0,
+          -5.196,
+          3.0
         ],
         "look_at": [
           0.0,
@@ -241,9 +185,9 @@
       },
       "projector": {
         "location": [
-          3.076,
-          -2.581,
-          2.6
+          5.196,
+          -3.0,
+          3.0
         ],
         "look_at": [
           0.0,

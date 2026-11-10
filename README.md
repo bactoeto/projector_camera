@@ -373,17 +373,21 @@ A self-contained check that can be judged by eye.
 blender -b demo/cube.blend -P projector_camera.py -- --config demo/config.json
 ```
 
-`demo/cube.blend` holds a single 2 m cube centred on the origin. The rig stops at all eight
-vertices of a regular octagon of radius 4 m and height 2.5 m, aimed at the origin each time,
-and projects `demo/test.png`: the word "test", black on white.
+`demo/cube.blend` holds a single 2 m cube centred on the origin. The rig stops at the six
+vertices of a regular hexagon, radius 6 m and height 3 m, and projects `demo/test.png`: the
+word "test", black on white.
 
-Expect eight images under `demo/output/v<index>_<angle>__test.png`, each showing the cube lit
-with the word across its faces, plus `demo/output/calibration.json` with eight poses.
+The camera and the projector sit on the same circle at the same height, 30 degrees apart, so
+the baseline is $2 \times 6 \sin 15° \approx 3.1$ m and light arrives at 30° to the line of
+sight. That tilt is the point of the demo: the word is visibly sheared and the faces that the
+projector cannot reach stay black.
 
-The camera and projector are rigidly mounted 0.35 m apart. Co-locating them would be
-degenerate: every pixel would leave and return along the same ray, so the capture would be
-the pattern itself, carrying no information about the object, and triangulation would have a
-zero baseline.
+Expect six images under `demo/output/v<index>_<angle>__test.png`, each showing the cube with
+the word on its front face, plus `demo/output/calibration.json` with six poses.
+
+Co-locating the two would be degenerate: every pixel would leave and return along the same
+ray, so the capture would be the pattern itself, carrying no information about the object,
+and triangulation would have a zero baseline.
 
 Each view sets its own `patterns` and the top-level entry is omitted, so the demo also
 exercises the per-view override.
