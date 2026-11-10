@@ -118,8 +118,8 @@ preset.
 against Blender's own projection of the same camera, so it shows that the numbers agree with
 Blender. It says nothing about agreement with a physical device, and for the projector it
 does not independently confirm that the add-on's light shader uses the same mapping as its
-helper camera. The shader's orientation was checked with the red/blue pattern; its scale has
-not been measured separately.
+helper camera. That second question is answered separately, by measurement: see
+[Verifying the projector mapping](#verifying-the-projector-mapping).
 
 ## Parameters
 
@@ -312,6 +312,54 @@ algorithms and generate data, not to claim hardware accuracy.
 | Projection looks stretched | `use_custom_texture_res` is off and `resolution` has another aspect ratio |
 | Still black after all that | Cycles is required; other engines cannot render light nodes |
 
+## Verifying the projector mapping
+
+The exported projector pose comes from the helper camera that the add-on creates, not from
+the light shader that actually projects the image. Nothing in the export proves the two agree,
+so the mapping is measured separately.
+
+```bash
+blender -b --python verify_dots.py -- --make-pattern verify/config.json
+blender -b scene.blend -P projector_camera.py -- --config verify/config.json
+blender -b --python verify_dots.py -- --measure verify/config.json
+```
+
+The last command exits non-zero when the check fails and writes `verify/out/measurement.json`.
+
+What it does:
+
+1. projects a nine-dot pattern onto the floor, whose height is known exactly
+2. locates each dot in the rendered camera image, sub-pixel
+3. turns each pattern pixel into a ray, intersects the floor, and projects that 3D point
+   through the exported camera model
+4. compares predicted and measured pixel positions
+
+Two residuals are reported. The absolute residual includes any constant offset. The centred
+residual subtracts the mean offset first, so it isolates errors of scale and shape, which are
+the ones that break triangulation.
+
+Measured on Blender 5.2.2 with nine dots, 256 samples:
+
+| Residual | Max | RMS | Limit |
+|---|---|---|---|
+| Absolute | 0.672 px | 0.567 px | 1.0 px |
+| Centred | 0.137 px | 0.080 px | 0.2 px |
+
+Result: **pass**. The shape of the mapping agrees to about 0.14 px, so the projector model is
+usable for triangulation.
+
+A mean offset of about (-0.50, -0.25) px remains. Its source is not isolated: it is either a
+half-pixel convention difference between centroid indexing and the projection model, or a
+small offset of the projector's principal point. It is below the tolerance either way, and
+because it is constant it does not distort the shape agreement above.
+
+Two implementation details in the measurement are worth knowing:
+
+- centroids are computed on a flat-fielded image (divided by its own blur), otherwise the
+  falloff of the projector across each dot pulls the centroid towards the bright side
+- pixels outside the lit region are excluded, because dividing near-black background by itself
+  turns render noise into fake peaks
+
 ## Verifying orientation
 
 `patterns/p00_left_red_right_blue.png` is red on the left and blue on the right. If a render
@@ -329,6 +377,7 @@ scene.blend           test scene (sphere, block, floor, one sun light, one user 
 patterns/             orientation test pattern and a checkerboard
 vendor/Projectors/    bundled add-on, GPL-3.0-or-later
 docs/                 API notes and reference material
+verify/               projector mapping check (pattern, config, dots.png)
 ```
 
 ## Licence

@@ -4,6 +4,7 @@ PLAN.md
 # Render / capture outputs
 output/
 renders/
+verify/out/
 *.blend1
 *.blend2
 

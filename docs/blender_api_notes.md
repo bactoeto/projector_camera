@@ -156,6 +156,21 @@ Enumeration caveats, both observed in `--factory-startup`:
 In background mode `bpy.data.images['Render Result'].pixels` is not reliable. Render with
 `write_still=True`, then `bpy.data.images.load()` the written file to read pixels back.
 
+## Image pixels
+
+`image.pixels` is a flat RGBA buffer with **bottom-up row order**, while any coordinate
+system you reason in (and what you see on screen) is top-down. Writing an array built
+top-down straight into `image.pixels` produces a vertically flipped file. Either flip rows
+before assigning, or read back with the same flip.
+
+Observed consequence: a dot pattern written without the flip rendered upside down and made a
+measurement disagree by hundreds of pixels until the flip was added.
+
+Also note that reading a rendered PNG back with `bpy.data.images.load()` returns the same
+bottom-up order, and index space matches image coordinates directly: no half-pixel offset was
+needed when centroid indices were compared against `world_to_camera_view` output. Adding half
+a pixel moved the residual by $0.5\sqrt{2}$, so it was removed.
+
 ## Maths and CLI
 
 | API | Use |
