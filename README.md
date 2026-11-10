@@ -39,6 +39,31 @@ done: <n> images written to <output_dir>
 poses written to <output_dir>/calibration.json
 ```
 
+## Deployment
+
+1. Install Blender 4.2 or newer from <https://www.blender.org/download/>.
+2. Make the `blender` executable reachable: add its directory to `PATH`, or call it by its
+   full path in the commands below.
+3. Get the repository and enter it:
+
+   ```bash
+   git clone https://github.com/bactoeto/projector_camera.git
+   cd projector_camera
+   ```
+
+4. Check the installation with the bundled demo:
+
+   ```bash
+   blender -b demo/cube.blend -P projector_camera.py -- --config demo/config.json
+   ```
+
+   It prints `done: 6 images written to ...` and writes
+   `demo/output/v<index>_<angle>__test.png` plus `demo/output/calibration.json`.
+5. Update later with `git pull`.
+
+Nothing is installed into Blender and no Python packages are needed: the repository is the
+deployment.
+
 ## Configuration
 
 A complete minimal configuration. Only `patterns` and the two poses per view are required;
