@@ -12,16 +12,22 @@ camera, then loops over views and patterns.
 """
 
 import json
+import math
 import sys
 from pathlib import Path
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
+
+from bpy_extras.object_utils import world_to_camera_view
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".exr"}
 
 PROJECTOR_NAME = "Projector"
 CAMERA_NAME = "SimCamera"
+
+# Blender cameras look down -Z with +Y up; OpenCV looks down +Z with +Y down.
+FLIP_TO_OPENCV = Matrix.Diagonal((1.0, -1.0, -1.0))
 
 
 def fail(message):
@@ -232,6 +238,85 @@ def prepare_scene(config, projector):
     return scene
 
 
+def intrinsics_of(camera, width, height):
+    """Pinhole intrinsics of a Blender camera, in pixels.
+
+    ``angle_x`` is used rather than lens and sensor width because the add-on
+    configures the projector's helper camera through the field of view.
+    """
+    data = camera.data
+    fx = (width * 0.5) / math.tan(data.angle_x * 0.5)
+    cx = width * (0.5 - data.shift_x)
+    cy = height * 0.5 + data.shift_y * width
+    return {
+        "width": int(width),
+        "height": int(height),
+        "K": [[fx, 0.0, cx], [0.0, fx, cy], [0.0, 0.0, 1.0]],
+    }
+
+
+def extrinsics_of(obj):
+    """World-to-camera rotation and translation in the OpenCV convention."""
+    matrix = obj.matrix_world
+    rotation = matrix.to_3x3()
+    translation = matrix.translation
+    rotation = FLIP_TO_OPENCV @ rotation.transposed()
+    translation = -(rotation @ translation)
+    return (
+        [[rotation[i][j] for j in range(3)] for i in range(3)],
+        [translation.x, translation.y, translation.z],
+    )
+
+
+def reprojection_rms(entry, obj, scene):
+    """RMS distance between our model and Blender's own projection, in pixels."""
+    width, height = entry["width"], entry["height"]
+    k = entry["K"]
+    fx, cx = k[0][0], k[0][2]
+    fy, cy = k[1][1], k[1][2]
+    rotation, translation = Matrix(entry["R"]), Vector(entry["t"])
+
+    squared = []
+    for local_x in (-0.35, 0.0, 0.35):
+        for local_y in (-0.2, 0.0, 0.2):
+            world = obj.matrix_world @ Vector((local_x, local_y, -2.0))
+            camera_point = rotation @ world + translation
+            if camera_point.z <= 1e-6:
+                continue
+            u = fx * camera_point.x / camera_point.z + cx
+            v = fy * camera_point.y / camera_point.z + cy
+            reference = world_to_camera_view(scene, obj, world)
+            du = u - reference.x * width
+            dv = v - (1.0 - reference.y) * height
+            squared.append(du * du + dv * dv)
+    if not squared:
+        fail("could not build a reprojection check for %s" % obj.name)
+    return math.sqrt(sum(squared) / len(squared))
+
+
+def projector_grid(props, patterns):
+    """Pixel grid of the projector: either its preset or the pattern's own size."""
+    if not props.use_custom_texture_res:
+        try:
+            width, height = props.resolution.split("x")
+        except ValueError:
+            fail("projector resolution must look like 1920x1080")
+        return int(width), int(height)
+
+    sizes = set()
+    for pattern in patterns:
+        image = bpy.data.images.load(str(pattern), check_existing=True)
+        sizes.add(tuple(image.size))
+    if len(sizes) > 1:
+        print(
+            "warning: patterns differ in size %s; the projector pixel grid follows "
+            "the first one. Set use_custom_texture_res to false for a fixed grid."
+            % sorted(sizes)
+        )
+    first = bpy.data.images.load(str(patterns[0]), check_existing=True)
+    return int(first.size[0]), int(first.size[1])
+
+
 def collect_patterns(path):
     target = Path(path)
     if target.is_file():
@@ -272,7 +357,16 @@ def main():
     texture_node = projector_texture_node(projector)
     scene = prepare_scene(config, projector)
 
+    warnings = []
+    projector_settings = config.get("projector", {})
+    if float(projector_settings.get("h_shift", 0.0)) or float(projector_settings.get("v_shift", 0.0)):
+        warnings.append(
+            "projector h_shift/v_shift is non-zero; the mapping from lens shift "
+            "percentage to principal point has not been measured"
+        )
+
     total = 0
+    poses = []
     for index, view in enumerate(views):
         name = view.get("name") or "view_%02d" % index
         aim(camera, view["camera"]["location"], view["camera"]["look_at"])
@@ -289,7 +383,7 @@ def main():
             texture_node.image = load_pattern(pattern, colorspace)
             texture_node.extension = "CLIP"
             # Re-apply so the projection mapping follows this image's aspect ratio.
-            apply_projector_settings(projector, config.get("projector", {}))
+            apply_projector_settings(projector, projector_settings)
 
             target = view_dir / (pattern.stem + ".png")
             scene.render.filepath = str(target)
@@ -297,7 +391,61 @@ def main():
             total += 1
             print("[%d] %s -> %s" % (total, pattern.name, target))
 
+        camera_entry = intrinsics_of(
+            camera, scene.render.resolution_x, scene.render.resolution_y
+        )
+        camera_entry["R"], camera_entry["t"] = extrinsics_of(camera)
+
+        projector_width, projector_height = projector_grid(projector.proj_settings, patterns)
+        projector_entry = intrinsics_of(projector, projector_width, projector_height)
+        projector_entry["R"], projector_entry["t"] = extrinsics_of(projector)
+
+        for label, entry, obj in (
+            ("camera", camera_entry, camera),
+            ("projector", projector_entry, projector),
+        ):
+            if label == "projector":
+                # world_to_camera_view takes the frame aspect from the render
+                # resolution, so match it to the projector's own pixel grid.
+                scene.render.resolution_x = projector_width
+                scene.render.resolution_y = projector_height
+                scene.render.resolution_percentage = 100
+            error = reprojection_rms(entry, obj, scene)
+            entry["reprojection_rms_px"] = round(error, 6)
+            if error > 0.5:
+                fail(
+                    "%s pose for view %s reprojects with %.3f px error, expected "
+                    "below 0.5; the exported parameters would not match the render"
+                    % (label, name, error)
+                )
+
+        scene.render.resolution_x = camera_entry["width"]
+        scene.render.resolution_y = camera_entry["height"]
+        scene.render.resolution_percentage = 100
+
+        poses.append(
+            {"name": name, "camera": camera_entry, "projector": projector_entry}
+        )
+
+    calibration = {
+        "convention": {
+            "space": "opencv",
+            "description": "world to camera; x right, y down, z forward",
+            "units": "metres",
+        },
+        "models": {
+            "camera": "ideal pinhole, no distortion",
+            "projector": "ideal pinhole, no distortion, no defocus",
+        },
+        "warnings": warnings,
+        "views": poses,
+    }
+    calibration_path = output_dir / "calibration.json"
+    calibration_path.write_text(json.dumps(calibration, indent=2) + "\n", encoding="utf-8")
+
     print("done: %d images written to %s" % (total, output_dir))
+    print("poses written to %s" % calibration_path)
+
 
 
 if __name__ == "__main__":

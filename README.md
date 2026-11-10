@@ -23,8 +23,9 @@ cd projector_camera
 ./run.sh
 ```
 
-That renders every pattern in `patterns/` from every view in `config.json` and writes the
-results to `output/`.
+That renders every pattern in `patterns/` from every view in `config.json`, writes the
+results to `output/`, and writes the camera and projector poses for each view to
+`output/calibration.json`.
 
 Explicit files and a different Blender:
 
@@ -48,6 +49,77 @@ blender -b scene.blend -P projector_camera.py -- --config config.json
 
 The input `.blend` is never written to. A `Projector` and a `SimCamera` object are created in
 memory and reused on later runs instead of piling up duplicates.
+
+## Inputs and outputs
+
+### Inputs
+
+| Input | Required | Notes |
+|---|---|---|
+| `scene.blend` | yes | The object, materials and layout. Read only, never written back |
+| `config.json` | yes | Paths, camera and projector parameters, view list |
+| patterns | yes | One image file, or a directory of images |
+
+### Outputs
+
+```
+output/
+├── view_00/
+│   ├── p00_left_red_right_blue.png
+│   └── p01_checker.png
+├── view_01/
+│   └── ...
+└── calibration.json
+```
+
+One PNG per view and pattern, named after the pattern file. Plus a single
+`calibration.json` describing every view.
+
+### calibration.json
+
+```jsonc
+{
+  "convention": { "space": "opencv", "units": "metres" },
+  "models": { "camera": "ideal pinhole, no distortion", ... },
+  "warnings": [],
+  "views": [
+    {
+      "name": "view_00",
+      "camera": {
+        "width": 1280, "height": 720,
+        "K": [[1244.4, 0, 640], [0, 1244.4, 360], [0, 0, 1]],
+        "R": [[...], [...], [...]],
+        "t": [0.0, -1.32, 1.77],
+        "reprojection_rms_px": 0.000018
+      },
+      "projector": { "width": 512, "height": 512, "K": [...], "R": [...], "t": [...],
+                     "reprojection_rms_px": 0.000016 }
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `K` | 3x3 intrinsics in pixels |
+| `R`, `t` | World to camera: `p_camera = R @ p_world + t` |
+| `width`, `height` | Pixel grid the intrinsics refer to |
+| `reprojection_rms_px` | Agreement between this model and Blender's own projection |
+
+The convention is OpenCV's camera convention: x right, y down, z forward, metres.
+That is what `cv2.projectPoints`, `cv2.triangulatePoints` and `cv2.solvePnP` expect,
+so no axis juggling is needed.
+
+The projector's `width` and `height` are its pixel grid, not the render resolution:
+either the pattern's own size (while `use_custom_texture_res` is true) or the `resolution`
+preset.
+
+**What `reprojection_rms_px` does and does not mean.** It compares the exported numbers
+against Blender's own projection of the same camera, so it shows that the numbers agree with
+Blender. It says nothing about agreement with a physical device, and for the projector it
+does not independently confirm that the add-on's light shader uses the same mapping as its
+helper camera. The shader's orientation was checked with the red/blue pattern; its scale has
+not been measured separately.
 
 ## Parameters
 
