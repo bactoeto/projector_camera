@@ -1,0 +1,12 @@
+# Session plan symlink, never committed
+PLAN.md
+
+# Render / capture outputs
+output/
+renders/
+*.blend1
+*.blend2
+
+# Python
+__pycache__/
+*.pyc
