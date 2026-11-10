@@ -1,85 +1,158 @@
 # projector_camera
 
-Project an image sequence onto an object in Blender and capture the result with a camera,
-headless. One command, one run, image files out.
+Project an image or an image sequence onto objects in an existing Blender scene, render the
+result from a camera at a list of poses, and write the camera and projector calibration next
+to the images. Headless, one command, no interaction.
 
-The projection is not reimplemented here. It comes from a bundled copy of the
-[Projectors](https://github.com/Ocupe/Projectors) add-on, which builds a spot light whose
-shader samples an image in place of Blender's missing projector object.
+The projection comes from a bundled copy of the
+[Projectors](https://github.com/Ocupe/Projectors) add-on: a spot light whose shader samples an
+image. This repository is a thin driver around it.
 
-## Requirements
-
-- Blender 4.2 or newer, with the `blender` command on `PATH`. The script checks the version
-  and exits with a clear message on anything older
-- Cycles; the script selects it, since light-node projection does not work elsewhere
-
-`demo/cube.blend` and `verify/scene.blend` were saved with Blender 5.2, so they cannot be
-opened by 4.2. The script itself works on 4.2 and up; only the bundled scenes are
-version-bound.
-
-## Quick start
+## Invocation
 
 ```bash
-git clone <this repository>
-cd projector_camera
-blender -b demo/cube.blend -P projector_camera.py -- --config demo/config.json
+blender -b <scene.blend> -P projector_camera.py -- --config <config.json>
 ```
 
-That writes six images to `demo/output/` and the camera and projector poses for each view to
-`demo/output/calibration.json`. The demo is described under [Demo](#demo-one-cube-the-word-test).
+- Run from the repository root. `scene.blend` and `projector_camera.py` are resolved against
+  the working directory.
+- `--config` is optional and defaults to `config.json` in the working directory.
+- The command is identical in bash, cmd.exe and PowerShell.
+- Nothing is installed into Blender and no Python outside Blender is used.
 
-For your own scene, point the first argument at your `.blend` and hand it a configuration:
+Requirements: Blender 4.2 or newer with `blender` on `PATH`. The script selects Cycles, which
+is required for light-node projection. It exits with a message if the version is older.
+If `blender` is not on `PATH`, call it by its full path instead.
 
-```bash
-blender -b my_scene.blend -P projector_camera.py -- --config my_config.json
-```
+Exit codes:
 
-The command is identical in bash, cmd.exe and PowerShell. Nothing else is needed: no Python
-install, no packages, no shell script. If `blender` is not found, add the directory containing
-the Blender executable to `PATH`.
+| Code | Meaning |
+|---|---|
+| 0 | Every view rendered and `calibration.json` was written |
+| 1 | Only from `verify/` scripts: a check failed |
+| 2 | Setup problem: missing file, bad configuration, add-on failure, old Blender |
 
-## Workflow
-
-1. Open your `.blend`, edit or replace the objects, save.
-2. Copy `config.example.json` to `config.json`; it lists only the required fields, everything
-   else takes a default.
-3. Run the command above.
-4. Results land in `output/<view_name>__<pattern_name>.png`.
-
-The input `.blend` is never written to. A `Projector` and a `SimCamera` object are created in
-memory and reused on later runs instead of piling up duplicates.
-
-## Inputs and outputs
-
-### Inputs
-
-| Input | Required | Notes |
-|---|---|---|
-| a `.blend` scene | yes | The objects, materials and layout. Read only, never written back |
-| a configuration file | yes | Only `patterns`, `views[].camera.location/look_at` and `views[].projector.location/look_at` are required; the rest has defaults |
-| patterns | yes | One image file, or a directory of images |
-
-### Outputs
+Stdout ends with two lines that are safe to parse:
 
 ```
-output/
-├── view_00__p00_left_red_right_blue.png
-├── view_00__p01_checker.png
-├── view_01__p00_left_red_right_blue.png
-├── view_01__p01_checker.png
+done: <n> images written to <output_dir>
+poses written to <output_dir>/calibration.json
+```
+
+## Configuration
+
+A complete minimal configuration. Only `patterns` and the two poses per view are required;
+everything else has a default.
+
+```json
+{
+  "patterns": "./patterns",
+  "views": [
+    {
+      "name": "view_00",
+      "camera": {
+        "location": [0.0, -2.2, 0.15],
+        "look_at": [0.0, 0.0, -0.1]
+      },
+      "projector": {
+        "location": [0.45, -2.4, 0.15],
+        "look_at": [0.0, 0.0, -0.1]
+      }
+    }
+  ]
+}
+```
+
+All paths are resolved relative to the configuration file, not the working directory.
+
+### Top level
+
+| Key | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `patterns` | string | yes¹ | — | One image file or a directory. A directory is sorted by filename |
+| `output_dir` | string | no | `./output` | Output root |
+| `pattern_colorspace` | string | no | `sRGB` | Use `Non-Color` when the image encodes intensity (fringes, Gray code) |
+| `projector_addon_path` | string | no | `<repo>/vendor/Projectors` | Override to use another copy of the add-on |
+
+¹ Required unless every view sets `views[].patterns`.
+
+### `render`
+
+| Key | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `samples` | int | no | 64 | Cycles samples per pixel |
+| `denoise` | bool | no | `false` | Leave off for measurement work; denoising biases results |
+| `device` | string | no | `CPU` | `CPU` or `GPU` |
+| `exposure` | float | no | 0.0 | Exposure in stops, applied to the whole render |
+
+### `lighting`
+
+| Key | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `disable_existing_lights` | bool | no | `true` | Hides every light object except the projector's |
+| `world_strength` | float | no | 0.0 | World background strength; a non-zero value adds a constant offset to every pixel. Ignored when the scene has no World |
+
+### `camera`
+
+| Key | Type | Unit | Default | Notes |
+|---|---|---|---|---|
+| `width`, `height` | int | px | 1280, 720 | Output resolution |
+| `lens` | float | mm | 35.0 | Focal length |
+| `sensor_width` | float | mm | 36.0 | Sensor width |
+| `shift_x`, `shift_y` | float | fraction of image width | 0.0 | Lens shift; `shift_y` is in units of width, not height |
+| `clip_start`, `clip_end` | float | m | 0.1, 100.0 | Clipping distances |
+| `dof.enable` | bool | — | `false` | Depth of field |
+| `dof.fstop` | float | — | 2.8 | Aperture; lower means more blur |
+| `dof.focus_distance` | float | m | 2.2 | Focus distance |
+
+A view may override any of these with `views[].camera.intrinsics`, a flat object using the
+same key names, e.g. `{"lens": 50.0, "shift_x": 0.02}`.
+
+### `projector`
+
+| Key | Type | Unit | Default | Notes |
+|---|---|---|---|---|
+| `use_custom_texture_res` | bool | — | `true` | `true`: the pattern file sets the pixel grid. `false`: `resolution` does |
+| `resolution` | string | — | `1920x1080` | Preset from the add-on's list. Ignored while the flag above is `true` |
+| `throw_ratio` | float | — | 1.5 | Throw ratio; smaller projects a bigger image |
+| `power` | float | W | 1000.0 | Light power; brightness only, not geometry |
+| `h_shift`, `v_shift` | float | percent | 0.0 | Lens shift |
+| `show_pixel_grid` | bool | — | `false` | Overlays the projector's pixel grid; keep off for measurement |
+
+With `use_custom_texture_res` on, the pattern keeps its own aspect ratio and `resolution` does
+nothing. With it off, the pattern is stretched to the chosen grid.
+
+### `views`
+
+| Key | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `name` | string | no | `view_<index>` | Output file prefix |
+| `patterns` | string | no | top-level `patterns` | Overrides the global list for this view |
+| `camera.location` | `[x, y, z]` | yes | — | Metres |
+| `camera.look_at` | `[x, y, z]` | yes | — | Sets the orientation |
+| `camera.intrinsics` | object | no | — | Per-view overrides, see above |
+| `projector.location` | `[x, y, z]` | yes | — | Metres |
+| `projector.look_at` | `[x, y, z]` | yes | — | Sets the orientation |
+
+## Outputs
+
+```
+<output_dir>/
+├── <view_name>__<pattern_stem>.png
+├── ...
 └── calibration.json
 ```
 
-One PNG per view and pattern, in a single directory, named
-`<view_name>__<pattern_name>.png`. The double underscore keeps the two names apart, since
-both contain single underscores. Plus a single `calibration.json` describing every view.
+One PNG per view and pattern in a single directory. The double underscore separates the two
+names because both contain single underscores. Files are written with Blender's `PNG`
+settings: 8-bit RGB, no alpha.
 
-### calibration.json
+`calibration.json` describes every view:
 
 ```jsonc
 {
   "convention": { "space": "opencv", "units": "metres" },
-  "models": { "camera": "ideal pinhole, no distortion", ... },
+  "models": { "camera": "ideal pinhole, no distortion", "projector": "..." },
   "warnings": [],
   "views": [
     {
@@ -98,326 +171,114 @@ both contain single underscores. Plus a single `calibration.json` describing eve
 
 | Field | Meaning |
 |---|---|
-| `K` | 3x3 intrinsics in pixels |
+| `K` | 3x3 intrinsics, pixels |
 | `R`, `t` | World to camera: `p_camera = R @ p_world + t` |
 | `width`, `height` | Pixel grid the intrinsics refer to |
+| `warnings` | Non-fatal notes, e.g. non-zero projector lens shift |
 
-The convention is OpenCV's camera convention: x right, y down, z forward, metres.
-That is what `cv2.projectPoints`, `cv2.triangulatePoints` and `cv2.solvePnP` expect,
-so no axis juggling is needed.
+The convention is OpenCV's: x right, y down, z forward, metres. It is directly usable with
+`cv2.projectPoints`, `cv2.triangulatePoints` and `cv2.solvePnP`.
 
-The projector's `width` and `height` are its pixel grid, not the render resolution:
-either the pattern's own size (while `use_custom_texture_res` is true) or the `resolution`
-preset.
+The projector's `width` and `height` are its pixel grid, not the render resolution: the
+pattern's own size when `use_custom_texture_res` is true, otherwise the `resolution` preset.
 
-These numbers are converted from Blender's camera fields; Blender does not store `K`. The
-conversion is documented under [Camera intrinsics](#camera-intrinsics). Two checks live
-outside the capture path: `verify/check_pose.py` compares every exported pose against
-Blender's own projection, and the nine-dot measurement under
-[Verifying the projector mapping](#verifying-the-projector-mapping) tests whether the add-on's
-light shader follows the same model. Neither of them proves agreement with a physical device.
+## Guarantees
 
-## Parameters
-
-Every value below is passed straight to Blender or to the add-on. The script does not convert
-anything; where Blender's own interface differs from a calibration matrix, the conversion is
-in [Camera intrinsics](#camera-intrinsics).
-
-### Paths
-
-| Key | Default | Meaning |
-|---|---|---|
-| `patterns` | none | One image file or a directory. A directory is sorted by filename. Required at the top level unless every view sets its own `views[].patterns` |
-| `output_dir` | `./output` | Output root |
-| `pattern_colorspace` | `sRGB` | Use `Non-Color` when the image encodes intensity (fringes, Gray code) |
-
-Paths are resolved relative to the configuration file.
-
-### Render
-
-| Key | Default | Meaning |
-|---|---|---|
-| `render.samples` | 64 | Cycles samples per pixel |
-| `render.denoise` | `false` | Leave off for measurement work; denoising biases results |
-| `render.device` | `CPU` | `CPU` or `GPU` |
-| `render.exposure` | 0.0 | Exposure in stops, applied to the whole render |
-
-### Lighting
-
-| Key | Default | Meaning |
-|---|---|---|
-| `lighting.disable_existing_lights` | `true` | Hides every light except the projector. Structured light needs the projector to be the only source |
-| `lighting.world_strength` | 0.0 | World background strength; a non-zero value adds a constant offset to every pixel |
-
-### Camera
-
-| Key | Default | Meaning |
-|---|---|---|
-| `camera.width`, `height` | 1280, 720 | Output resolution in pixels |
-| `camera.lens` | 35.0 | Focal length, mm |
-| `camera.sensor_width` | 36.0 | Sensor width, mm |
-| `camera.shift_x`, `shift_y` | 0.0 | Lens shift, in fractions of the image **width** (see below) |
-| `camera.clip_start`, `clip_end` | 0.1, 100.0 | Clipping distances, metres |
-| `camera.dof.enable` | `false` | Depth of field |
-| `camera.dof.fstop` | 2.8 | Aperture; lower means more blur |
-| `camera.dof.focus_distance` | 2.2 | Focus distance, metres |
-
-A view may override any of these with `views[].camera.intrinsics`.
-
-### Projector
-
-| Key | Default | Meaning |
-|---|---|---|
-| `projector.use_custom_texture_res` | `true` | `true`: the pattern file sets the pixel grid. `false`: the `resolution` entry does |
-| `projector.resolution` | `1920x1080` | Pixel grid, taken from the add-on's preset list. Ignored while the flag above is `true` |
-| `projector.throw_ratio` | 1.5 | Throw ratio; smaller projects a bigger image |
-| `projector.power` | 1000.0 | Light power in watts; brightness only, not geometry |
-| `projector.h_shift`, `v_shift` | 0.0 | Lens shift, percent |
-| `projector.show_pixel_grid` | `false` | Overlays the projector's pixel grid |
-
-`use_custom_texture_res` and `resolution` interact: with the flag on, `resolution` does
-nothing and the pattern keeps its own aspect ratio. With the flag off, the pattern is fitted
-to the chosen grid, which stretches it to that aspect ratio.
-
-### Views
-
-| Key | Meaning |
+| Statement | Detail |
 |---|---|
-| `views[].name` | Output subdirectory |
-| `views[].patterns` | Overrides the top-level `patterns` for this view; same file-or-directory rules |
-| `views[].camera.location`, `.look_at` | Metres; `look_at` sets the orientation |
-| `views[].projector.location`, `.look_at` | Same, for the projector |
+| The input `.blend` is never written | The script has no save call; opening and rendering do not modify the file |
+| Nothing is added permanently | `SimCamera` and `Projector` are created in memory only |
+| Existing objects are reused, not duplicated | A camera named `SimCamera` and a projector named `Projector` are reused when they already exist |
+| Stale projectors are removed | Before creating one, objects whose name starts with `Projector` are deleted from the in-memory scene |
+| Existing lights are hidden from rendering | `hide_render = true` on every light except the projector's, when `disable_existing_lights` is true |
+| The active render camera is replaced | `scene.camera` points at `SimCamera` for the run |
+| Render settings are overridden | Engine, resolution, samples, device, exposure, view transform and output path follow the configuration |
 
-## Camera intrinsics
+## Failure modes
 
-Calibration gives a matrix $K$ and distortion coefficients. Blender's camera takes neither
-directly, so the numbers have to be converted. All conversions below were measured on
-Blender 5.2.2.
-
-### Focal length
-
-```
-fx = width * lens / sensor_width
-lens = fx * sensor_width / width
-```
-
-Example: $f_x = 1600$ px, width 1280 px, sensor 36 mm gives `lens = 45.0`.
-
-### Vertical focal length
-
-Blender perspective cameras always have square pixels: $f_y$ is forced equal to $f_x$.
-Measured with `sensor_fit` set to `HORIZONTAL`, `VERTICAL` and `AUTO`, the frame aspect always
-matched the render aspect.
-
-If the calibrated $f_x$ and $f_y$ differ by less than about one percent, use their mean and
-move on. Above that, the difference cannot be reproduced by the camera and has to be applied
-afterwards as an anisotropic resize, which changes the pixel grid.
-
-### Principal point
-
-```
-cx = width * (0.5 - shift_x)        ->  shift_x = 0.5 - cx / width
-cy = height * 0.5 + shift_y * width ->  shift_y = (cy - height / 2) / width
-```
-
-Note the asymmetry: `shift_y` is measured in units of image **width**, not height. Using the
-height here introduces an error equal to the aspect ratio.
-
-Example: 1280x720 with $c_x = 512$, $c_y = 488$ gives `shift_x = 0.1`, `shift_y = 0.1`.
-
-### Skew
-
-$s$ cannot be represented. Modern cameras effectively have $s = 0$, so nothing is lost in
-practice.
-
-### Distortion
-
-$k_1, k_2, k_3, p_1, p_2$ have no effect here. Neither Blender's camera nor the projector
-add-on models lens distortion; the projected image is a perfect pinhole projection. Adding it
-means preprocessing the projected image and post-processing the captured one, which is
-planned as a later step and is not implemented.
-
-### Projector intrinsics
-
-The projector's pixel grid is the pattern image, so its focal length in pixels follows from
-the throw ratio:
-
-```
-fx_projector = pattern_width * throw_ratio
-```
-
-This follows from the add-on source, which sets the helper camera's horizontal field of view
-to $2\arctan(0.5 / \text{throw\_ratio})$. It has not been verified by measurement, unlike the
-camera formulas above.
-
-The projector's principal point is adjusted with `h_shift` / `v_shift` in percent, not with
-pixel coordinates; there is no direct $c_x, c_y$ input.
-
-### Summary
-
-| Calibrated | Field | Conversion |
+| Message | Cause | Fix |
 |---|---|---|
-| $f_x$ | `camera.lens` | `lens = fx * sensor_width / width` |
-| $f_y$ | — | equals $f_x$; below 1% difference is acceptable |
-| $c_x$ | `camera.shift_x` | `shift_x = 0.5 - cx / width` |
-| $c_y$ | `camera.shift_y` | `shift_y = (cy - height/2) / width` |
-| $s$ | — | not representable |
-| $k_n, p_n$ | — | not implemented yet |
-| projector $f_x$ | `projector.throw_ratio` | approximately `fx / pattern_width` |
-| projector $c_x, c_y$ | `h_shift`, `v_shift` | percent, no direct pixel input |
+| `error: Blender 4.1.0 is too old; this tool needs 4.2 or newer` | Version below 4.2 | Use a newer Blender |
+| `error: configuration not found: <path>` | Wrong `--config` path | Check the path |
+| `error: configuration has no views` | Empty `views` list | Add at least one view |
+| `error: view 'x' needs 'camera.location' and 'camera.look_at'` | Missing pose | Fill both fields |
+| `error: view 'x' has no 'patterns' and the configuration has no default 'patterns'` | No pattern for this view | Add `views[].patterns` or a top-level `patterns` |
+| `error: patterns path is neither a file nor a directory` | Bad `patterns` value | Point it at an image or a directory |
+| `error: no images found in <dir>` | Empty pattern directory | Add images |
+| `error: unsupported image format: <file>` | Extension outside png/jpg/jpeg/bmp/tif/tiff/exr | Convert the file |
+| `error: unknown projector resolution 'X'` | Preset not in the add-on's list, while `use_custom_texture_res` is false | Use a valid preset or turn the flag on |
+| `error: look_at is identical to the location of <object>` | Degenerate pose | Move one of the points |
+| `error: could not register the Projectors add-on: ...` | Add-on failed to load | Check `projector_addon_path` |
+| `blender: command not found` | Blender not on `PATH` | Add it, or invoke Blender by full path |
 
-## What this models
-
-Cycles ray tracing is used, so these are physical, not faked:
-
-- occlusion and projected shadows, including the shadow regions structured light produces
-- diffuse and glossy reflection, with interreflection
-- inverse-square falloff of illuminance with distance
-- exact perspective projection through the projector, matching a pinhole model
-- camera depth of field, when `camera.dof.enable` is set
-
-## What this does not model
-
-An ideal pinhole projector is not a real projector. Absent here:
+## Limits
 
 | Missing | Effect |
 |---|---|
 | Lens distortion, either device | Straight lines stay straight; real optics bend them |
-| Projector defocus | Its pinhole has no aperture, so fringes stay sharp at every distance |
+| Projector defocus | Its pinhole has no aperture, so fringes stay sharp at any distance |
 | Sensor noise | Images are cleaner than any camera |
 | Vignetting, brightness uniformity | Edge brightness differs from a real device |
 | Projector gamma | Grey values do not map linearly to light |
 | Camera `fx != fy` | Blender perspective cameras always have square pixels |
+| Skew | Not representable |
 | Polarisation, spectral response | Not represented |
 
-Consequence: results are systematically better than hardware. Weston et al.
-(arXiv:2605.18545v1, section 3.2, figure 10) measured a 13 micrometre mean difference between
-a physical rig and its Blender twin, with the simulation performing about 19 percent better,
-attributed to perfect focus, infinite depth of field and no noise. Use this tool to validate
-algorithms and generate data, not to claim hardware accuracy.
+An ideal pinhole projector is not a real projector. Use this tool to validate algorithms and
+generate data, not to claim hardware accuracy. Weston et al. (arXiv:2605.18545v1, section 3.2,
+figure 10) measured a 13 micrometre mean difference between a physical rig and its Blender
+twin, with the simulation performing about 19 percent better, attributed to perfect focus,
+infinite depth of field and no noise.
 
-## Troubleshooting
+## Converting from a calibration
 
-| Symptom | Cause |
-|---|---|
-| `blender: command not found` (or `not recognized`) | Blender is not on `PATH`; add the directory that holds the executable |
-| `error: Blender 4.1.0 is too old` | Needs 4.2 or newer |
-| `configuration not found` | Wrong path, or the command was run from another directory |
-| `no images found in ...` | `patterns` points at an empty directory |
-| Image is black | Check `projector.power`, and that no other light replaced the projector |
-| Image is washed out | `lighting.world_strength` is not zero, or `disable_existing_lights` is off |
-| Projection looks stretched | `use_custom_texture_res` is off and `resolution` has another aspect ratio |
-| Still black after all that | Cycles is required; other engines cannot render light nodes |
+Calibration gives a matrix `K` and distortion coefficients; Blender's camera takes neither
+directly. Measured on Blender 5.2.2:
 
-## Checking the exported poses
-
-`calibration.json` is produced by converting Blender's own camera fields, so it can be
-checked against Blender. That check lives outside the capture path:
-
-```bash
-blender -b verify/scene.blend -P verify/check_pose.py -- --config config.example.json
+```
+fx = width * lens / sensor_width        lens = fx * sensor_width / width
+cx = width * (0.5 - shift_x)            shift_x = 0.5 - cx / width
+cy = height * 0.5 + shift_y * width     shift_y = (cy - height / 2) / width
 ```
 
-It rebuilds every view's poses, projects nine points with the exported `K`, `R` and `t`, and
-compares the result with `world_to_camera_view`. Exit code 1 means the exported numbers do
-not describe the scene, and nothing downstream can trust them.
+`fy` is forced equal to `fx`; a difference below about one percent is acceptable. Skew and
+distortion (`k1, k2, k3, p1, p2`) cannot be represented and are not applied.
 
-## Verifying the projector mapping
+For the projector, `fx_projector = pattern_width * throw_ratio`, derived from the add-on's
+source, which sets the helper camera's horizontal field of view to
+`2 * atan(0.5 / throw_ratio)`. The principal point is set with `h_shift` / `v_shift` in
+percent; there is no pixel-coordinate input.
 
-The exported projector pose comes from the helper camera that the add-on creates, not from
-the light shader that actually projects the image. Nothing in the export proves the two agree,
-so the mapping is measured separately.
-
-```bash
-blender -b --python verify/verify_dots.py -- --make-pattern verify/config.json
-blender -b verify/scene.blend -P projector_camera.py -- --config verify/config.json
-blender -b --python verify/verify_dots.py -- --measure verify/config.json
-```
-
-The last command exits non-zero when the check fails and writes `verify/out/measurement.json`.
-
-What it does:
-
-1. projects a nine-dot pattern onto the floor, whose height is known exactly
-2. locates each dot in the rendered camera image, sub-pixel
-3. turns each pattern pixel into a ray, intersects the floor, and projects that 3D point
-   through the exported camera model
-4. compares predicted and measured pixel positions
-
-Two residuals are reported. The absolute residual includes any constant offset. The centred
-residual subtracts the mean offset first, so it isolates errors of scale and shape, which are
-the ones that break triangulation.
-
-Measured on Blender 5.2.2 with nine dots, 256 samples:
-
-| Residual | Max | RMS | Limit |
-|---|---|---|---|
-| Absolute | 0.672 px | 0.567 px | 1.0 px |
-| Centred | 0.137 px | 0.080 px | 0.2 px |
-
-Result: **pass**. The shape of the mapping agrees to about 0.14 px, so the projector model is
-usable for triangulation.
-
-A mean offset of about (-0.50, -0.25) px remains. Its source is not isolated: it is either a
-half-pixel convention difference between centroid indexing and the projection model, or a
-small offset of the projector's principal point. It is below the tolerance either way, and
-because it is constant it does not distort the shape agreement above.
-
-Two implementation details in the measurement are worth knowing:
-
-- centroids are computed on a flat-fielded image (divided by its own blur), otherwise the
-  falloff of the projector across each dot pulls the centroid towards the bright side
-- pixels outside the lit region are excluded, because dividing near-black background by itself
-  turns render noise into fake peaks
-
-## Verifying orientation
-
-`patterns/p00_left_red_right_blue.png` is red on the left and blue on the right. If a render
-shows red on the left, the projection is not mirrored. This is the cheapest check that the
-add-on's mapping behaves as expected on the Blender version in use.
-
-## Demo: one cube, the word test
-
-A self-contained check that can be judged by eye.
+## Demo
 
 ```bash
 blender -b demo/cube.blend -P projector_camera.py -- --config demo/config.json
 ```
 
-`demo/cube.blend` holds a single 2 m cube centred on the origin. The rig stops at the six
-vertices of a regular hexagon, radius 6 m and height 3 m, and projects `demo/test.png`: the
-word "test", black on white.
+Six views of a 2 m cube with the word `test` projected on it; camera and projector are 30
+degrees apart on a 6 m hexagon. Writes `demo/output/v<index>_<angle>__test.png` and
+`demo/output/calibration.json`. The demo scene carries a weak sun so the cube is visible
+outside the projection; capture configurations normally leave every other light off.
 
-The camera and the projector sit on the same circle at the same height, 30 degrees apart, so
-the baseline is $2 \times 6 \sin 15° \approx 3.1$ m and light arrives at 30° to the line of
-sight. That tilt is the point of the demo: the word is visibly sheared and the faces that the
-projector cannot reach stay black.
+## Checks
 
-Expect six images under `demo/output/v<index>_<angle>__test.png`, each showing the cube with
-the word on its front face, plus `demo/output/calibration.json` with six poses.
+Both live outside the capture path and are run by hand.
 
-Co-locating the two would be degenerate: every pixel would leave and return along the same
-ray, so the capture would be the pattern itself, carrying no information about the object,
-and triangulation would have a zero baseline.
+```bash
+# exported poses against Blender's own projection; run after a capture
+# with the same configuration, since it reads <output_dir>/calibration.json
+blender -b verify/scene.blend -P verify/check_pose.py -- --config config.example.json
 
-Each view sets its own `patterns` and the top-level entry is omitted, so the demo also
-exercises the per-view override.
-
-## Layout
-
+# projector light shader against the exported projector model
+blender -b --python verify/verify_dots.py -- --make-pattern verify/config.json
+blender -b verify/scene.blend -P projector_camera.py -- --config verify/config.json
+blender -b --python verify/verify_dots.py -- --measure verify/config.json
 ```
-projector_camera.py   entry point
-config.example.json   required fields only; everything else has a default
-patterns/             orientation test pattern and a checkerboard
-vendor/Projectors/    bundled add-on, GPL-3.0-or-later
-docs/                 API notes and reference material
-demo/                 cube.blend, test.png, config.json: six views
-verify/               checks and the scene they run against
-```
+
+`check_pose.py` exits 1 on disagreement and writes nothing. `verify_dots.py --measure` writes
+`verify/out/measurement.json` and exits 1 when the residual exceeds the tolerance.
 
 ## Licence
 
-This repository is GPL-3.0 (see `LICENSE`) because it bundles
-`vendor/Projectors`, which is GPL-3.0-or-later and keeps its own LICENSE file.
-Redistributing this repository redistributes that code, so the combined work falls under
-GPL-3.
+GPL-3.0: this repository bundles `vendor/Projectors`, which is GPL-3.0-or-later and keeps its
+own LICENSE file.
