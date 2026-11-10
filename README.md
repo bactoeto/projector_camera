@@ -13,35 +13,36 @@ shader samples an image in place of Blender's missing projector object.
   and exits with a clear message on anything older
 - Cycles; the script selects it, since light-node projection does not work elsewhere
 
-`scene.blend` was saved with Blender 5.2, so it cannot be opened by 4.2. The script itself
-works on 4.2 and up; only the bundled scene is version-bound.
+`demo/cube.blend` and `verify/scene.blend` were saved with Blender 5.2, so they cannot be
+opened by 4.2. The script itself works on 4.2 and up; only the bundled scenes are
+version-bound.
 
 ## Quick start
 
 ```bash
 git clone <this repository>
 cd projector_camera
-blender -b scene.blend -P projector_camera.py -- --config config.json
+blender -b demo/cube.blend -P projector_camera.py -- --config demo/config.json
 ```
 
-That renders every pattern in `patterns/` from every view in `config.json`, writes the
-results to `output/`, and writes the camera and projector poses for each view to
-`output/calibration.json`.
+That writes six images to `demo/output/` and the camera and projector poses for each view to
+`demo/output/calibration.json`. The demo is described under [Demo](#demo-one-cube-the-word-test).
 
-The command is identical in bash, cmd.exe and PowerShell. Other scene and configuration
-files go after the script:
+For your own scene, point the first argument at your `.blend` and hand it a configuration:
 
 ```bash
 blender -b my_scene.blend -P projector_camera.py -- --config my_config.json
 ```
 
-Nothing else is needed: no Python install, no packages, no shell script. If `blender` is not
-found, add the directory containing the Blender executable to `PATH`.
+The command is identical in bash, cmd.exe and PowerShell. Nothing else is needed: no Python
+install, no packages, no shell script. If `blender` is not found, add the directory containing
+the Blender executable to `PATH`.
 
 ## Workflow
 
-1. Open `scene.blend`, edit or replace the objects, save.
-2. Copy `config.example.json` to `config.json` and adjust the marked fields.
+1. Open your `.blend`, edit or replace the objects, save.
+2. Copy `config.example.json` to `config.json`; it lists only the required fields, everything
+   else takes a default.
 3. Run the command above.
 4. Results land in `output/<view_name>__<pattern_name>.png`.
 
@@ -54,8 +55,8 @@ memory and reused on later runs instead of piling up duplicates.
 
 | Input | Required | Notes |
 |---|---|---|
-| `scene.blend` | yes | The object, materials and layout. Read only, never written back |
-| `config.json` | yes | Paths, camera and projector parameters, view list |
+| a `.blend` scene | yes | The objects, materials and layout. Read only, never written back |
+| a configuration file | yes | Only `patterns`, `views[].camera.location/look_at` and `views[].projector.location/look_at` are required; the rest has defaults |
 | patterns | yes | One image file, or a directory of images |
 
 ### Outputs
@@ -87,11 +88,9 @@ both contain single underscores. Plus a single `calibration.json` describing eve
         "width": 1280, "height": 720,
         "K": [[1244.4, 0, 640], [0, 1244.4, 360], [0, 0, 1]],
         "R": [[...], [...], [...]],
-        "t": [0.0, -1.32, 1.77],
-        "reprojection_rms_px": 0.000018
+        "t": [0.0, -1.32, 1.77]
       },
-      "projector": { "width": 512, "height": 512, "K": [...], "R": [...], "t": [...],
-                     "reprojection_rms_px": 0.000016 }
+      "projector": { "width": 512, "height": 512, "K": [...], "R": [...], "t": [...] }
     }
   ]
 }
@@ -102,7 +101,6 @@ both contain single underscores. Plus a single `calibration.json` describing eve
 | `K` | 3x3 intrinsics in pixels |
 | `R`, `t` | World to camera: `p_camera = R @ p_world + t` |
 | `width`, `height` | Pixel grid the intrinsics refer to |
-| `reprojection_rms_px` | Agreement between this model and Blender's own projection |
 
 The convention is OpenCV's camera convention: x right, y down, z forward, metres.
 That is what `cv2.projectPoints`, `cv2.triangulatePoints` and `cv2.solvePnP` expect,
@@ -112,12 +110,12 @@ The projector's `width` and `height` are its pixel grid, not the render resoluti
 either the pattern's own size (while `use_custom_texture_res` is true) or the `resolution`
 preset.
 
-**What `reprojection_rms_px` does and does not mean.** It compares the exported numbers
-against Blender's own projection of the same camera, so it shows that the numbers agree with
-Blender. It says nothing about agreement with a physical device, and for the projector it
-does not independently confirm that the add-on's light shader uses the same mapping as its
-helper camera. That second question is answered separately, by measurement: see
-[Verifying the projector mapping](#verifying-the-projector-mapping).
+These numbers are converted from Blender's camera fields; Blender does not store `K`. The
+conversion is documented under [Camera intrinsics](#camera-intrinsics). Two checks live
+outside the capture path: `verify/check_pose.py` compares every exported pose against
+Blender's own projection, and the nine-dot measurement under
+[Verifying the projector mapping](#verifying-the-projector-mapping) tests whether the add-on's
+light shader follows the same model. Neither of them proves agreement with a physical device.
 
 ## Parameters
 
@@ -129,7 +127,7 @@ in [Camera intrinsics](#camera-intrinsics).
 
 | Key | Default | Meaning |
 |---|---|---|
-| `patterns` | `./patterns` | One image file or a directory. A directory is sorted by filename. Required unless every view sets its own `views[].patterns` |
+| `patterns` | none | One image file or a directory. A directory is sorted by filename. Required at the top level unless every view sets its own `views[].patterns` |
 | `output_dir` | `./output` | Output root |
 | `pattern_colorspace` | `sRGB` | Use `Non-Color` when the image encodes intensity (fringes, Gray code) |
 
@@ -311,6 +309,19 @@ algorithms and generate data, not to claim hardware accuracy.
 | Projection looks stretched | `use_custom_texture_res` is off and `resolution` has another aspect ratio |
 | Still black after all that | Cycles is required; other engines cannot render light nodes |
 
+## Checking the exported poses
+
+`calibration.json` is produced by converting Blender's own camera fields, so it can be
+checked against Blender. That check lives outside the capture path:
+
+```bash
+blender -b verify/scene.blend -P verify/check_pose.py -- --config config.example.json
+```
+
+It rebuilds every view's poses, projects nine points with the exported `K`, `R` and `t`, and
+compares the result with `world_to_camera_view`. Exit code 1 means the exported numbers do
+not describe the scene, and nothing downstream can trust them.
+
 ## Verifying the projector mapping
 
 The exported projector pose comes from the helper camera that the add-on creates, not from
@@ -318,9 +329,9 @@ the light shader that actually projects the image. Nothing in the export proves 
 so the mapping is measured separately.
 
 ```bash
-blender -b --python verify_dots.py -- --make-pattern verify/config.json
-blender -b scene.blend -P projector_camera.py -- --config verify/config.json
-blender -b --python verify_dots.py -- --measure verify/config.json
+blender -b --python verify/verify_dots.py -- --make-pattern verify/config.json
+blender -b verify/scene.blend -P projector_camera.py -- --config verify/config.json
+blender -b --python verify/verify_dots.py -- --measure verify/config.json
 ```
 
 The last command exits non-zero when the check fails and writes `verify/out/measurement.json`.
@@ -396,14 +407,12 @@ exercises the per-view override.
 
 ```
 projector_camera.py   entry point
-config.json           example with two views
-config.example.json   minimal single-view configuration
-scene.blend           test scene (sphere, block, floor, one sun light, one user camera)
+config.example.json   required fields only; everything else has a default
 patterns/             orientation test pattern and a checkerboard
 vendor/Projectors/    bundled add-on, GPL-3.0-or-later
 docs/                 API notes and reference material
-demo/                 one cube, projected "test", eight views
-verify/               projector mapping check (pattern, config, dots.png)
+demo/                 cube.blend, test.png, config.json: six views
+verify/               checks and the scene they run against
 ```
 
 ## Licence

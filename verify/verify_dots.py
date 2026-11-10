@@ -14,9 +14,9 @@ measures it:
 
 Usage:
 
-    blender -b --python verify_dots.py -- --make-pattern verify/config.json
-    blender -b scene.blend -P projector_camera.py -- --config verify/config.json
-    blender -b --python verify_dots.py -- --measure verify/config.json
+    blender -b --python verify/verify_dots.py -- --make-pattern verify/config.json
+    blender -b verify/scene.blend -P projector_camera.py -- --config verify/config.json
+    blender -b --python verify/verify_dots.py -- --measure verify/config.json
 
 Exits non-zero when the maximum deviation exceeds the tolerance.
 """

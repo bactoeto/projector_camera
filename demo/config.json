@@ -9,7 +9,7 @@
     "exposure": 0.0
   },
   "lighting": {
-    "disable_existing_lights": true,
+    "disable_existing_lights": false,
     "world_strength": 0.0
   },
   "camera": {

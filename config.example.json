@@ -1,47 +1,7 @@
 {
-  "_comment": "Minimal working configuration. Copy to config.json and edit the marked fields.",
+  "_comment": "Only the required fields are listed; every other parameter has a default. Copy to config.json and edit the paths and the two poses.",
 
-  "patterns": "./patterns/p01_checker.png",
-  "output_dir": "./output",
-  "pattern_colorspace": "sRGB",
-
-  "render": {
-    "samples": 32,
-    "denoise": false,
-    "device": "CPU",
-    "exposure": 0.0
-  },
-
-  "lighting": {
-    "disable_existing_lights": true,
-    "world_strength": 0.0
-  },
-
-  "camera": {
-    "width": 1280,
-    "height": 720,
-    "lens": 35.0,
-    "sensor_width": 36.0,
-    "shift_x": 0.0,
-    "shift_y": 0.0,
-    "clip_start": 0.1,
-    "clip_end": 100.0,
-    "dof": {
-      "enable": false,
-      "fstop": 2.8,
-      "focus_distance": 2.2
-    }
-  },
-
-  "projector": {
-    "use_custom_texture_res": true,
-    "resolution": "1920x1080",
-    "throw_ratio": 1.5,
-    "power": 1000.0,
-    "h_shift": 0.0,
-    "v_shift": 0.0,
-    "show_pixel_grid": false
-  },
+  "patterns": "./patterns",
 
   "views": [
     {
