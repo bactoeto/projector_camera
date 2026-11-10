@@ -128,19 +128,40 @@ def select_only(obj):
 
 
 def apply_projector_settings(projector, settings):
+    """Pass configuration straight into the add-on's own properties.
+
+    Order matters. ``projected_texture`` decides whether the resolution setting
+    is honoured at all, and ``use_custom_texture_res`` decides whether the
+    resolution comes from the dropdown or from the pattern file. Both are set
+    before the resolution and the throw ratio, because the add-on recomputes the
+    projection mapping from whatever the current state is.
+    """
     select_only(projector)
     props = projector.proj_settings
+    props.projected_texture = "custom_texture"
+
+    if "use_custom_texture_res" in settings:
+        props.use_custom_texture_res = bool(settings["use_custom_texture_res"])
+
+    if "resolution" in settings and not props.use_custom_texture_res:
+        try:
+            props.resolution = settings["resolution"]
+        except TypeError:
+            fail(
+                "unknown projector resolution %r; set use_custom_texture_res to true "
+                "to follow the pattern file instead" % settings["resolution"]
+            )
+
+    if "throw_ratio" in settings:
+        props.throw_ratio = float(settings["throw_ratio"])
     if "power" in settings:
         props.power = float(settings["power"])
     if "h_shift" in settings:
         props.h_shift = float(settings["h_shift"])
     if "v_shift" in settings:
         props.v_shift = float(settings["v_shift"])
-    if "resolution" in settings:
-        props.resolution = settings["resolution"]
-    props.projected_texture = "custom_texture"
-    if "throw_ratio" in settings:
-        props.throw_ratio = float(settings["throw_ratio"])
+    if "show_pixel_grid" in settings:
+        props.show_pixel_grid = bool(settings["show_pixel_grid"])
 
 
 def projector_texture_node(projector):
@@ -165,6 +186,13 @@ def apply_camera_settings(camera, settings, scene):
     data.clip_start = float(settings.get("clip_start", 0.1))
     data.clip_end = float(settings.get("clip_end", 100.0))
 
+    dof = settings.get("dof", {})
+    data.dof.use_dof = bool(dof.get("enable", False))
+    if "fstop" in dof:
+        data.dof.aperture_fstop = float(dof["fstop"])
+    if "focus_distance" in dof:
+        data.dof.focus_distance = float(dof["focus_distance"])
+
     scene.render.resolution_x = int(settings["width"])
     scene.render.resolution_y = int(settings["height"])
     scene.render.resolution_percentage = 100
@@ -184,6 +212,7 @@ def prepare_scene(config, projector):
     scene.cycles.use_denoising = bool(render.get("denoise", False))
     if "device" in render:
         scene.cycles.device = render["device"]
+    scene.view_settings.exposure = float(render.get("exposure", 0.0))
 
     lighting = config.get("lighting", {})
     if lighting.get("disable_existing_lights", True):
