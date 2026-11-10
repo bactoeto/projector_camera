@@ -9,7 +9,8 @@ shader samples an image in place of Blender's missing projector object.
 
 ## Requirements
 
-- Blender 4.2 or newer. `run.sh` refuses to start on anything older
+- Blender 4.2 or newer, with the `blender` command on `PATH`. The script checks the version
+  and exits with a clear message on anything older
 - Cycles; the script selects it, since light-node projection does not work elsewhere
 
 `scene.blend` was saved with Blender 5.2, so it cannot be opened by 4.2. The script itself
@@ -20,31 +21,28 @@ works on 4.2 and up; only the bundled scene is version-bound.
 ```bash
 git clone <this repository>
 cd projector_camera
-./run.sh
+blender -b scene.blend -P projector_camera.py -- --config config.json
 ```
 
 That renders every pattern in `patterns/` from every view in `config.json`, writes the
 results to `output/`, and writes the camera and projector poses for each view to
 `output/calibration.json`.
 
-Explicit files and a different Blender:
+The command is identical in bash, cmd.exe and PowerShell. Other scene and configuration
+files go after the script:
 
 ```bash
-./run.sh my_scene.blend my_config.json
-BLENDER=/opt/blender/blender ./run.sh
+blender -b my_scene.blend -P projector_camera.py -- --config my_config.json
 ```
 
-Without `run.sh`:
-
-```bash
-blender -b scene.blend -P projector_camera.py -- --config config.json
-```
+Nothing else is needed: no Python install, no packages, no shell script. If `blender` is not
+found, add the directory containing the Blender executable to `PATH`.
 
 ## Workflow
 
 1. Open `scene.blend`, edit or replace the objects, save.
 2. Copy `config.example.json` to `config.json` and adjust the marked fields.
-3. Run `./run.sh`.
+3. Run the command above.
 4. Results land in `output/<view_name>/<pattern_name>.png`.
 
 The input `.blend` is never written to. A `Projector` and a `SimCamera` object are created in
@@ -303,9 +301,9 @@ algorithms and generate data, not to claim hardware accuracy.
 
 | Symptom | Cause |
 |---|---|
-| `error: Blender was not found` | Install Blender, or set `BLENDER=/path/to/blender` |
-| `error: Blender 4.1 is too old` | Needs 4.2 or newer |
-| `configuration not found` | Wrong path, or `run.sh` was started from another directory |
+| `blender: command not found` (or `not recognized`) | Blender is not on `PATH`; add the directory that holds the executable |
+| `error: Blender 4.1.0 is too old` | Needs 4.2 or newer |
+| `configuration not found` | Wrong path, or the command was run from another directory |
 | `no images found in ...` | `patterns` points at an empty directory |
 | Image is black | Check `projector.power`, and that no other light replaced the projector |
 | Image is washed out | `lighting.world_strength` is not zero, or `disable_existing_lights` is off |
@@ -370,7 +368,6 @@ add-on's mapping behaves as expected on the Blender version in use.
 
 ```
 projector_camera.py   entry point
-run.sh                wrapper: version check, then Blender
 config.json           example with two views
 config.example.json   minimal single-view configuration
 scene.blend           test scene (sphere, block, floor, one sun light, one user camera)

@@ -340,7 +340,19 @@ def load_pattern(path, colorspace):
     return image
 
 
+def check_version(version=None):
+    """Refuse to run on a Blender older than the add-on supports."""
+    if version is None:
+        version = bpy.app.version
+    if version < (4, 2, 0):
+        fail(
+            "Blender %d.%d.%d is too old; this tool needs 4.2 or newer"
+            % version[:3]
+        )
+
+
 def main():
+    check_version()
     config_path = parse_args()
     config = load_config(config_path)
     ensure_addon(config, Path(__file__).resolve().parent)
